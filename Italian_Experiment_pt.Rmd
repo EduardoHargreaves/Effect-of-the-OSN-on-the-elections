@@ -5,10 +5,12 @@ O dataset pode ser baixado em: https://github.com/tracking-exposed/experiments-d
 
 Se você utilizar este código ou dataset, por favor, nos cite usando a seguinte texto no formato BibTex:
 
+```
 @inproceedings{Hargreaves2018c, author = {Hargreaves, Eduardo and Menasché, Daniel and Neglia, Giovanni and Agosti, Claudio}, booktitle = {In Proceedings of the VII Brazilian Workshop on Social Network Analysis and Mining (BraSNAM)}, title = {{Visibilidade no Facebook : Modelos , Medi{\c{c}}{~{o}}es e Implica{\c{c}}{~{o}}es}}, year = {2018} }
+```
 
-
-```{r message=FALSE, warning=FALSE}
+```
+{r message=FALSE, warning=FALSE}
 library(lubridate)
 library(jsonlite)
 library(dplyr)
@@ -37,7 +39,6 @@ library(Metrics)
 ```{r}
 dataset <- fromJSON('/Users/Eduardo/Google Drive/Facebook Experiments/Italian_dataset/opendata-e18.array.json')
 dataset_FB_API <- fromJSON('/Users/Eduardo/Google Drive/Facebook Experiments/Italian_dataset/api-posts-e18.array.json')
-
 ```
 
 
@@ -70,8 +71,6 @@ It is possible to see that the number of posts per snaphots isn't constant. By s
 ```{r}
 top_dataset <- filter(dataset,impressionOrder<=top_positions  & impressionTime < period) 
 ```
-
-
 
 #Factor enhancements to help the visualization
 ```{r Factor Creation}
