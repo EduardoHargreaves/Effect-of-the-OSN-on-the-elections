@@ -23,3 +23,5 @@ booktitle = {In Proceedings of the VII Brazilian Workshop on Social Network Anal
 title = {{Visibilidade no Facebook : Modelos , Medi{\c{c}}{\~{o}}es e Implica{\c{c}}{\~{o}}es}},
 year = {2018}
 }
+
+If you use the dataset or the code, please let me know by sending me an email: eduardo@hargreaves.tech 
