@@ -1,6 +1,6 @@
 # Effect-of-the-OSN-on-the-elections
 
-The dataset used in the paper: "Visibilidade no Facebook: Modelo, Medições e Implicações" can be found in: 
+The dataset generate by the facebook.tracking.exposed team which was used in the paper: "Visibilidade no Facebook: Modelo, Medições e Implicações" can be found in: 
 https://github.com/tracking-exposed/experiments-data/tree/master/e18.
 
 The R notebook necessary to generate the statiscal analysis, the model validation and the what-if analysis can be found in:
