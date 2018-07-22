@@ -1,0 +1,543 @@
+
+
+This notebook was used to analyse the data produced during the experiments of the 2018 general Italian elections.
+The dataset can be downloaded in: https://github.com/tracking-exposed/experiments-data/tree/master/e18.
+
+If you use the dataset, pela cite us use the followng BibTex text:
+Se você utilizar este código ou dataset, por favor, nos cite usando a seguinte texto no formato BibTex:
+
+@inproceedings{Hargreaves2018c, author = {Hargreaves, Eduardo and Agosti, Claudio and Menasché, Daniel and Neglia, Giovanni  and Reiffers-Masson, Alexandre  and Altman, Eitan }, booktitle = {InProceedings of the IEEE/ACM Int’l Conference on Social Networks Analysis and Mining (ASONAM 2018). Barcelona, Spain. August, 2018}, title = {{Biases in the Facebook News Feed: a Case Study on the Italian Elections}}, year = {2018} }
+
+
+
+
+```{r message=FALSE, warning=FALSE}
+library(lubridate)
+library(jsonlite)
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(plotly)
+library(stringr)
+library(magrittr)
+library(broom)
+library(forcats)
+library(scales)
+```
+
+#Dataset Loading and Filtering
+
+```{r}
+dataset <- fromJSON('/Users/Eduardo/Google Drive/Facebook Experiments/Italian_dataset/opendata-e18.array.json')
+dataset_FB_API <- fromJSON('/Users/Eduardo/Google Drive/Facebook Experiments/Italian_dataset/api-posts-e18.array.json')
+
+```
+
+
+```{r}
+# parameters
+top_positions <- 1
+periodBegin <- '2018-01-06'
+periodEnd <- '2018-03-06'
+
+```
+
+
+```{r}
+# In the Facebook API, a user can publish in a page. In this case, the page appears in pageName and the user appears in from.name. In Asonam paper, we accounted only for posts from the selected publishers
+dataset_FB_API$fromName <- dataset_FB_API$from$name
+dataset_FB_API <- dataset_FB_API %>% select(-`_id`,-`likes`,-`shares`,-`from`)
+dataset_FB_API <- dataset_FB_API %>% filter(publisherName==fromName)
+dataset_FB_API$`fromName` <- NULL
+```
+
+
+
+
+```{r}
+#head(dataset)
+dataset$`_id` <- NULL
+dataset <- filter(dataset, impressionTime >= periodBegin & impressionTime <= periodEnd)
+dataset_FB_API <- filter(dataset_FB_API, created_time >= periodBegin  & created_time <= periodEnd ) 
+```
+
+#Factor enhancements to help the visualization
+```{r}
+
+dataset <- dataset %>% mutate(publisherName = fct_recode(publisherName, 
+  "Lega Salvini"= "Lega - Salvini Premier",
+  "Fascisti uniti"=
+    "Fascisti uniti per L'italia",
+  "M5S"="MoVimento 5 Stelle",
+  "Il Primato..." = 	"Il Primato Nazionale",
+  "Il Fatto Quoti"="Il Fatto Quotidiano",
+  "M. RenziNs"="Matteo Renzi News",
+  "P. Democratico"="Partito Democratico",
+  "Il manifesto"="il manifesto",
+  "La Repubblica"="la Repubblica",
+  "L.Borgonzoni"="Lucia Borgonzoni",
+  "Adesso ti inf"="Adesso ti informo",
+  "CasaPound"="CasaPound Italia",
+  "Lotta Studt"="Lotta Studentesca",
+  "Articolo UNO"="Articolo UNO - Movimento Democratico e Progressista"
+))
+
+dataset_FB_API <- dataset_FB_API %>% mutate(publisherName = fct_recode(publisherName, 
+ "Lega Salvini"= "Lega - Salvini Premier",
+  "Fascisti uniti"=
+    "Fascisti uniti per L'italia",
+  "M5S"="MoVimento 5 Stelle",
+  "Il Primato..." = 	"Il Primato Nazionale",
+  "Il Fatto Quoti"="Il Fatto Quotidiano",
+  "M. RenziNs"="Matteo Renzi News",
+  "P. Democratico"="Partito Democratico",
+  "Il manifesto"="il manifesto",
+  "La Repubblica"="la Repubblica",
+  "L.Borgonzoni"="Lucia Borgonzoni",
+  "Adesso ti inf"="Adesso ti informo",
+  "CasaPound"="CasaPound Italia",
+  "Lotta Studt"="Lotta Studentesca",
+  "Articolo UNO"="Articolo UNO - Movimento Democratico e Progressista"
+))
+
+pub_levels <- c( "Articolo UNO","Giuseppe Civati","Il manifesto","Laura Boldrini","Possibile","Sinistra Italiana",
+                 "Adesso ti inf","Democratica","La Repubblica","Matteo Renzi","M. RenziNs","P. Democratico",
+                 "Beppe Grillo","Il Fatto Quoti","Luigi Di Maio","M5S news","M5S","W IL M5S",
+                 "Giorgia Meloni","Il Giornale","Il Populista","Lega Salvini","L.Borgonzoni","Noi con Salvini",
+                 "CasaPound","Fascisti uniti","Forza Nuova","Il Primato...","Lotta Studt","Ordine Futuro","Roberto Fiore"
+)
+
+dataset$publisherName_re_ordered <- dataset$publisherName %>% fct_relevel("Articolo UNO","Giuseppe Civati","Il manifesto","Laura Boldrini","Possibile","Sinistra Italiana",
+                 "Adesso ti inf","Democratica","La Repubblica","Matteo Renzi","M. RenziNs","P. Democratico",
+                 "Beppe Grillo","Il Fatto Quoti","Luigi Di Maio","M5S news","M5S","W IL M5S",
+                 "Giorgia Meloni","Il Giornale","Il Populista","Lega Salvini","L.Borgonzoni","Noi con Salvini",
+                 "CasaPound","Fascisti uniti","Forza Nuova","Il Primato...","Lotta Studt","Ordine Futuro","Roberto Fiore") 
+
+```
+
+```{r}
+source_posts <- dataset %>% group_by(publisherName,publisherOrientation) %>% distinct(postId) %>% summarise(posts = n())
+(ggplot(source_posts, aes(x=reorder(publisherName, -posts),y=posts,fill=publisherOrientation)) +
+    geom_bar(stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1),legend.position="bottom",axis.title.x=element_blank())
+ +labs(title="Total number of posts by publisher from FBtrex",x="Publisher", y="Posts Published")
+  +guides(fill=guide_legend(title="Publisher orientation"))
+)
+ggsave("publicacoes_por_fonte_fbtrex.eps")
+```
+
+
+#Sanity Check
+
+
+All users have more than 400 news feed snapshots
+```{r}
+snapshots <- dataset %>% group_by(profileAlign) %>% distinct(timelineId) %>% summarise(snapshots = n())
+(ggplot(snapshots, aes(profileAlign,snapshots,fill=profileAlign))+geom_bar(stat="identity")
++labs(title="Snaphots per bot",x="Bot", y="Snapshots")
++guides(fill=guide_legend(title="Bot Orientation")))
+ggsave("fotografias_por_bot.eps")
+```
+
+It is possible to see that the number of posts per snaphots isn't constant. By slicing the dataset, it is possible to see that some posts are missing in some snapshots.
+
+
+```{r}
+#top_dataset <- filter(dataset,impressionOrder<=top_positions  & impressionTime < period) 
+```
+
+```{r}
+impressions_per_snapshot <- dataset %>% group_by(profileAlign,timelineId) %>% summarise(impressions = n())
+ggplot(impressions_per_snapshot, aes(impressions))+geom_histogram()
+
+impressions_per_snapshot <- dataset %>% filter(impressionOrder==1) %>% group_by(profileAlign,timelineId) %>% summarise(impressions = n())
+ggplot(impressions_per_snapshot, aes(impressions))+geom_histogram()
+
+
+impressions_per_snapshot <- dataset %>% filter(impressionOrder<=10) %>% group_by(profileAlign,timelineId) %>% summarise(impressions = n())
+ggplot(impressions_per_snapshot, aes(impressions))+geom_histogram()
+
+
+impressions_per_snapshot <- dataset %>% filter(impressionOrder<=30) %>% group_by(profileAlign,timelineId) %>% summarise(impressions = n())
+ggplot(impressions_per_snapshot, aes(impressions))+geom_histogram()
+
+
+
+```
+
+#Data Transformation and creation of a tidy dataset and statics
+
+
+
+Create a tidy dataset, with a new collumn account for the slice of the timeline 
+```{r}
+tmp <-  dataset %>% filter(impressionOrder==1) %>%  group_by(profileAlign,publisherName,publisherOrientation)  %>%  summarise (top_position=1, unique_posts=n_distinct(postId),views=n())
+
+for (i in 2:40 ){
+  
+ tmp_loop <-  dataset %>% filter(impressionOrder<=i) %>%  group_by(profileAlign,publisherName,publisherOrientation)  %>%  summarise (top_position=i,views=n_distinct(postId))
+tmp <- bind_rows(tmp, tmp_loop)
+}
+
+
+
+```
+
+FB Api Data
+```{r}
+#by publisher
+source_posts_FB_API <- dataset_FB_API %>% group_by(publisherName,publisherOrientation) %>% distinct(postId) %>% summarise(created_posts = n())
+total_posts <-  dataset_FB_API %>% distinct(postId) %>% summarize(total=n() ) # I need to correct it
+source_posts_FB_API$total_unique_posts <- total_posts$total
+#source_posts_FB_API <-  mutate(source_posts_FB_API,unfiltered_probability=top*created_posts / total_unique_posts )
+
+#by orientation
+
+# it is wrong I need to correct
+posts_produced_by_orientation <- dataset_FB_API %>% group_by(publisherOrientation) %>% distinct(postId) %>% summarize(created_posts=n())
+```
+
+
+Create the results table
+```{r}
+#results <- inner_join(tmp_unique, tmp_views)
+results <-inner_join(tmp, source_posts_FB_API)
+results$top <- as.numeric(results$top_position)
+results <-inner_join(results, snapshots)
+results <- mutate(results,occupancy=views / snapshots,
+                  prop_occupancy=occupancy/top,
+                  rate=unique_posts/snapshots)
+```
+
+
+Merge with FB API data
+```{r}
+
+results <-inner_join(results, source_posts_FB_API)
+```
+```{r}
+total_rate <- results %>% group_by(profileAlign,top_position) %>% summarize(total_rate=sum(rate))
+results <-inner_join(results, total_rate)
+```
+
+Statistics with both sources of information
+
+```{r}
+results <- results %>% mutate(unfiltered_probability=top*created_posts / total_unique_posts )
+results <- mutate(results,blocking_rate=(unique_posts)/(created_posts),
+                  bias=occupancy-unfiltered_probability,
+                  rel_bias=(occupancy-unfiltered_probability)/unfiltered_probability,
+                  prop_bias=bias/top,
+                  bloqued_posts=(created_posts-unique_posts)/snapshots,
+                  model=top*rate/total_rate,
+                  bias=model-unfiltered_probability
+                  ) #normalized by
+
+results$publisherName_re_ordered <- results$publisherName %>% fct_relevel("Articolo UNO","Giuseppe Civati","Il manifesto","Laura Boldrini","Possibile","Sinistra Italiana",
+                 "Adesso ti inf","Democratica","La Repubblica","Matteo Renzi","M. RenziNs","P. Democratico",
+                 "Beppe Grillo","Il Fatto Quoti","Luigi Di Maio","M5S news","M5S","W IL M5S",
+                 "Giorgia Meloni","Il Giornale","Il Populista","Lega Salvini","L.Borgonzoni","Noi con Salvini",
+                 "CasaPound","Fascisti uniti","Forza Nuova","Il Primato...","Lotta Studt","Ordine Futuro","Roberto Fiore") 
+```
+
+
+Grouped_by_orienation
+```{r}
+results_by_orientation <- results %>% group_by(profileAlign,publisherOrientation,top_position) %>% summarize(unique_posts=sum(unique_posts),views=sum(views),bias=mean(bias),occupancy=sum(occupancy),prop_occupancy=sum(prop_occupancy),total_unique_posts=max(total_unique_posts))
+results_by_orientation$top <- as.numeric(results_by_orientation$top_position)
+results_by_orientation <-inner_join(results_by_orientation,snapshots)
+results_by_orientation <-inner_join(results_by_orientation,posts_produced_by_orientation)
+results_by_orientation <- mutate(results_by_orientation,blocking_rate=created_posts/(views*snapshots),
+                                 unfiltered_probability=top*created_posts / total_unique_posts,
+                                 #bias=occupancy-unfiltered_probability,
+                                 prop_bias=bias/top)
+
+
+```
+
+
+
+#Comparison between FB API and FBtrex data
+
+
+FB API Data and Analysis. The figure below shows that Luigi di Maio is the publisher that produced more contents, followed by Il Giornale and Il Fatto Quotidiano and two sources related to Lega Salvini. La Repubblica appears in the 6th position. 
+
+
+```{r}
+(ggplot(source_posts_FB_API, aes(x=reorder(publisherName, -created_posts),y=created_posts,fill=publisherOrientation)) +
+    geom_bar(stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1),legend.position="bottom",,axis.title.x=element_blank())
+ +labs(title="Total number of unique posts by publisher from FB API",x="Publisher", y="Posts Published")
+ +guides(fill=guide_legend(title="Publisher orientation"))
+)
+
+ggsave("publicacoes_por_fonte_API.eps")
+
+
+(ggplot(filter(results,top_position=='40' & occupancy > 0.3), aes(x=reorder(publisherName,-created_posts),y=views,fill=publisherOrientation))  + facet_wrap(~profileAlign)
+    +geom_bar(stat="identity") +theme_bw()+ theme(axis.text.x = element_text(angle = 70, hjust = 1),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=9))
+  +labs( y="Impressions")
+  +guides(fill=guide_legend(title="Publisher orientation"))
+  +geom_point(aes(x=publisherName,y=created_posts/4), size = 2) 
+ +scale_y_continuous(sec.axis = sec_axis(~.*4, name = "Created Posts"))
+)
+ggsave("publicacoes_por_fonte_e_user_no_top40.eps")
+
+(ggplot(filter(results,top_position=='1' & views >5), aes(x=reorder(publisherName,-created_posts),y=views,fill=publisherOrientation))  + facet_wrap(~profileAlign)
+    +geom_bar(stat="identity") +theme_bw()+ theme(axis.text.x = element_text(angle = 70, hjust = 1),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=9))
+  +labs( y="Impressions")
+  +guides(fill=guide_legend(title="Publisher orientation"))
+  +geom_point(aes(x=publisherName,y=created_posts/36), size = 1) 
+ +scale_y_continuous(sec.axis = sec_axis(~.*36, name = "Created Posts"))
+)
+ggsave("publicacoes_por_fonte_e_user_no_top.eps")
+
+
+```
+
+
+
+
+
+Below is the total posts produced grouped by political orientation. The right sources produced more posts, followed closely by the 5 star movement sources.
+
+```{r}
+(ggplot(posts_produced_by_orientation, aes(x=publisherOrientation,y=created_posts,fill=publisherOrientation)) +
+    geom_bar(stat="identity") + theme(axis.text.x = element_text(angle = 45, hjust = 1),legend.position="bottom")
+ +labs(title="Total number of posts by orientation from Facebook API",x="Publisher", y="Posts Published")
+ +guides(fill=guide_legend(title="Publisher orientation"))
+)
+ggsave("publicacoes_por_orientacao_API.eps")
+```
+
+The following plot shows the distribution of posts that appeared in any position of the bot's news feed. This figure contains all the posts collected by the experiment. It is possible to see that both plots differs. Il Giornale is the most viewed followed by La Repubblica.
+
+```{r}
+source_posts <- dataset %>% group_by(publisherName,publisherOrientation) %>% distinct(postId) %>% summarise(posts = n())
+(ggplot(source_posts, aes(x=reorder(publisherName, -posts),y=posts,fill=publisherOrientation)) +
+    geom_bar(stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1),legend.position="bottom")
+ +labs(title="Total number of posts by publisher from FBtrex",x="Publisher", y="Posts Published")
+  +guides(fill=guide_legend(title="Publisher orientation"))
+)
+ggsave("publicacoes_por_fonte_fbtrex.eps")
+```
+
+The Figure below shows the distribution of posts that appeared in the top position of the bot's news feed. This figure differs even more of the first one. Now, La Reppublica is the most popular publisher, accounting for the three times the number posts of the Movimento 5 Stelle. The two publishers that created more content, Luigi di Maio and Il Giornale, doesn't appear in the top 5 positions.  
+
+
+```{r}
+
+
+(ggplot(filter(results,top_position=='1'), aes(x=reorder(publisherName, -views),y=views,fill=publisherOrientation)) +
+    geom_bar(stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ +labs(title="Total number of posts viewed by publisher on the top of the news feed",x="Publisher", y="Posts Viewed")
+)
+
+
+```
+
+
+Grouped by political orientation, the difference becomes even clearer,  due to the high occupancy of La Repubblica, the center-left orientation is the more popular in top position, and the right orientation drops to the 3rd position.
+
+
+```{r}
+
+
+(ggplot(filter(results_by_orientation,top_position=='1'), aes(x=reorder(publisherOrientation, -views),y=views,fill=publisherOrientation)) +
+    geom_bar(stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ +labs(title="Total number of posts viewed by publisher on the top of the news feed",x="Publisher", y="Posts Viewed")
+)
+
+(ggplot(filter(results_by_orientation,top_position=='10'), aes(x=publisherOrientation, ,y=views,fill=publisherOrientation)) +
+    geom_bar(stat="identity") + theme(axis.text.x = element_text(angle = 45, hjust = 1),legend.position="bottom")
+ +labs(title="Total number of posts viewed by publisher on the top of the news feed",x="Publisher", y="Posts Viewed")
+ +guides(fill=guide_legend(title="Publisher orientation"))
+)
+ggsave("publicacoes_por_fonte_orientacoes_no_top10.eps")
+
+```
+
+
+#Top-K analysis
+
+```{r}
+
+(ggplot(filter(results,top_position=='1' & created_posts >200), aes(x=reorder(publisherName,-created_posts),y=prop_occupancy,fill=publisherOrientation))  + facet_wrap(~profileAlign)
+    +geom_bar(stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1),legend.position="bottom")
+ +labs(title="Publisher occupancy on the top at each bot",x="Publisher", y="occupancy")
+)
+
+(ggplot(filter(results,top_position=='10' & created_posts >200), aes(x=reorder(publisherName,-created_posts),y=occupancy,fill=publisherOrientation))  + facet_wrap(~profileAlign)
+    +geom_bar(stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1),legend.position="bottom")
+ +geom_point(aes(x=publisherName,y=unfiltered_probability), size = 0.5) 
+  +labs(x="Publisher", y="Occupancy")
+  +guides(fill=guide_legend(title="Publisher orientation"))
+)
+ggsave("publicacoes_por_fonte_e_user_no_top10.eps")
+
+(ggplot(filter(results,top_position=='30'), aes(x=reorder(publisherName,-created_posts),y=prop_occupancy,fill=publisherOrientation))  + facet_wrap(~profileAlign)
+    +geom_bar(stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1),legend.position="bottom")
+ +labs(title="Publisher occupancy on the top 30 at each bot",x="Publisher", y="occupancy")
+)
+```
+
+```{r}
+(ggplot(filter(results_by_orientation,top==1), aes(x=publisherOrientation,y=views,fill=publisherOrientation)) +
+    geom_bar(stat="identity") + theme(axis.text.x = element_text(angle = 45, hjust = 1),legend.position="bottom")
+ + facet_wrap(~profileAlign)
+ +labs(title="Número total de publicações vistas por orientação política por usuário",x="Orientação da fonte", y="Publicações")+guides(fill=guide_legend(title="Orientação do fonte"))
+)
+ggsave("publicacoes_por_orientaçao_por_usuario.eps")
+
+(ggplot(filter(results_by_orientation,top==10), aes(x=publisherOrientation,y=views,fill=publisherOrientation)) +
+    geom_bar(stat="identity") + theme(axis.text.x = element_text(angle = 45, hjust = 1),legend.position="bottom")
+ + facet_wrap(~profileAlign)
+ +labs(title="Posts views by political orientation by bot",x="Publisher orientation", y="Posts")+guides(fill=guide_legend(title="Publisher orientation"))
+)
+ggsave("publicacoes_por_orientaçao_por_usuario_top10.eps")
+```
+
+
+
+##Bias versus top-k analysis
+
+
+
+
+
+```{r}
+(ggplot(filter(results), aes(x=top_position,y=prop_occupancy,fill=publisherOrientation)) +   geom_bar(stat="identity",position="fill")+ facet_wrap(~profileAlign)+theme_bw()
+ +labs(x="News Feed Size", y="Normalized occupancy")+ theme(legend.position="bottom",axis.text = element_text( size=12, face="bold"),axis.title=element_text(size=12,face="bold"))+guides(fill=guide_legend(title="Publisher orientation"))
+)
+ggsave("occupancy_over_k.eps")
+
+```
+
+
+
+
+#Bootstraping functions
+
+```{r}
+
+diff_bootstrap <- function(vec1,vec2,repetitions,top){
+  # this function calculates the diference of the bootstrap of two vectors
+  bots <- unique(factor(dataset$profileAlign)) # create a categorical factor do be used by seq_along
+  botsList <- as_tibble(unique(dataset$profileAlign)) # create a list to be used by the filter   
+  
+  
+                                                  
+  resampled=as_tibble()
+  
+  for (i in seq_along(bots)) {
+    data <- filter(dataset,profileAlign==botsList[[i,1]] & impressionOrder==top)
+    samples <- data %>%  distinct(timelineId) %>% count()
+    Fb_API_resample <- stats(vec2$publisherName,repetitions,samples$n*top)
+    Fb_API_resample <- rename(Fb_API_resample,viewsApi=views)
+    tmp <- stats(data$publisherName,repetitions,samples$n*top)
+    tmp <- full_join(Fb_API_resample,tmp) 
+   #samtmp3 
+    tmp <- add_column(tmp, profileAlign = botsList[[i,1]],samples=samples$n)
+    resampled <- bind_rows(resampled,tmp)
+    resampled$views <- replace_na(resampled$views,0)
+    resampled$viewsApi <- replace_na(resampled$viewsApi,0)
+    
+  } 
+  
+ resampled <- resampled %>% mutate(bias=(resampled$views-resampled$viewsApi)/(samples*top))
+  resampled  <- rename(resampled,sample=key,publisherName=value)
+  # spread the dataset to assure values in all samples
+  tmp <- resampled %>% select(publisherName,sample,bias,profileAlign)
+  tmp <- spread(tmp,key=publisherName,value=bias)
+  tmp <- tmp %>% select(-sample)
+  resampled <- tmp %>% gather(-profileAlign,key=publisherName,value=bias)
+  resampled$bias <- resampled$bias %>% replace_na(0)
+  return(resampled)
+}
+
+
+# The random variable that accounts fort the topmost position is binary. Therefore we need generate means of means to make the variable continuous. 
+stats <- function(x,repetitions,samples){
+  tmp <- replicate(repetitions, sample(x,samples, replace = TRUE)) %>% tidy
+  tmp <- gather(tmp)  %>% group_by(key,value) %>% summarise(views=n())
+}
+
+#Retuns the confidence itervals to be plotted
+diff_bootstrap_CI <- function(resampled,vec,confidence){
+#results, where the intervals should be calculated
+# vec, needed by ordenate the bias plot by the number of posts created  
+up <- (1-confidence)/2+confidence
+low <- (1-confidence)/2
+resampling_summary <- resampled %>% group_by(profileAlign,publisherName) %>%
+    summarise(low=quantile(bias, probs=low),
+              median=quantile(bias, probs=0.5),
+              high=quantile(bias, probs=up),
+              resampledBias=mean(bias),
+              total=n()
+              )
+   publishers <- vec %>% group_by(publisherName,publisherOrientation) %>% summarize(createdPosts=n())
+   resampling_summary <- inner_join(resampling_summary,publishers)
+   return(resampling_summary)
+}
+
+diff_bootstrap_CI_orientation <- function(resampled,vec,confidence){
+#results, where the intervals should be calculated
+# vec, needed by ordenate the bias plot by the number of posts created  
+up <- (1-confidence)/2+confidence
+low <- (1-confidence)/2
+resampled<- inner_join(resampled,publishers)
+resampling_summary <- resampled %>% group_by(profileAlign,publisherOrientation) %>%
+    summarise(low=quantile(bias, probs=low),
+              median=quantile(bias, probs=0.5),
+              high=quantile(bias, probs=up),
+              bias=mean(bias),
+              total=n()
+              )
+   orientations <- vec %>% group_by(publisherOrientation) %>% summarize(createdPosts=n())
+   resampling_summary <- inner_join(resampling_summary,orientations)
+   return(resampling_summary)
+}
+
+```  
+
+
+# Resampling Bias Analysis with 95% confidence intervals
+#Top 1 Analisys
+
+
+
+
+```{r}
+resampled <- diff_bootstrap(dataset,dataset_FB_API,1000,1)
+resampling_summary <- diff_bootstrap_CI(resampled,dataset_FB_API,0.95)
+tmp <- results %>% filter(top==1) %>% select('publisherName','bias','top','occupancy','publisherName_re_ordered')
+resampling_summary <- inner_join(resampling_summary,tmp)
+
+ (ggplot(filter(resampling_summary,bias/top>0.05 | bias/top< -0.05), #aes(x=publisherName_re_ordered,y=resampledBias*top,fill=publisherOrientation))  + facet_wrap(~profileAlign)
+ aes(x=reorder(publisherName,createdPosts),y=resampledBias*top,fill=publisherOrientation))  + facet_wrap(~profileAlign)  
+    +geom_bar(stat="identity") +theme_bw()
+   +geom_point(aes(x=publisherName,y=bias/top), size = 1)
+   + theme(axis.text.x = element_text(angle = 00, hjust = 1),legend.position="bottom",legend.text = element_text( size=6, face="bold"), panel.grid.minor = element_blank(),axis.title.y=element_blank(),axis.text = element_text( size=8, face="bold"),axis.title=element_text(size=8,face="bold"))
+   +geom_errorbar(aes(ymin=low,ymax=high))
+ +labs(x="Publisher", y="Bias") +coord_flip()+guides(fill=guide_legend(title="Publisher orientation"))
+)
+
+ggsave("vies_por_fonte_top.eps")
+
+
+```
+
+
+
+
+
+#Fifo Model Validation
+
+```{r}
+(ggplot(filter(results,top==1), aes(y=model, x=occupancy)) +
+    geom_point()+labs(y='Model', x='Measurements')
+ + geom_line(aes(x=occupancy,y=occupancy))+theme_bw()
+ + theme(axis.text = element_text( size=17, face="bold"),axis.title=element_text(size=17,face="bold"))
+)
+ggsave("validacao.eps")
+```
+```
+
