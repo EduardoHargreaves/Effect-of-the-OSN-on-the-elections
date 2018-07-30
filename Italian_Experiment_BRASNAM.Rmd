@@ -1,7 +1,8 @@
+# Visibilidade no Facebook: Modelos , Medições e Implicações
 
 * Este notebook foi usado para os dados contidos no artigo "Visibilidade no Facebook : Modelos , Medições e Implicações"
 
-*Os dados produzidos durante os experimentos da eleição presidencial Italiana de 2018 podem ser baixados em: https://github.com/tracking-exposed/experiments-data/tree/master/e18. Copias adicionais podem ser baixados em: https://github.com/EduardoHargreaves/Effect-of-the-OSN-on-the-elections/Italian-Experiment-Dataset
+* Os dados produzidos durante os experimentos da eleição presidencial Italiana de 2018 podem ser baixados em: https://github.com/tracking-exposed/experiments-data/tree/master/e18. Copias adicionais podem ser baixados em: https://github.com/EduardoHargreaves/Effect-of-the-OSN-on-the-elections/Italian-Experiment-Dataset
 
 
 Se você utilizar este código ou dataset, por favor, nos cite usando a seguinte texto no formato BibTex:
