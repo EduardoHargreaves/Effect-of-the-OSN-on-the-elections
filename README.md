@@ -1,8 +1,8 @@
 # Fairness and Bias in the Facebook News Feed
 
-This repository contains the dataset and R codes needed to analyse the bias of the Facebook News Feed Algorithm. The 2018 General Italian Election was used as a case study. Later, we propose fair methods do design timelines.
+This repository contains the dataset and R codes needed to analyse the bias of the Facebook News Feed Algorithm. The 2018 General Italian Elections experiment served as a case study. Later, we propose fair methods to design timelines.
 
-If you use the dataset, please cite our complete work that will appear in The 36th International Symposium on Computer Performance, 
+If you use the dataset, please cite our complete work that will appear in the 36th International Symposium on Computer Performance, 
 Modeling, Measurements and Evaluation 2018.
 
 * @unpublished{FacebookFairness,
