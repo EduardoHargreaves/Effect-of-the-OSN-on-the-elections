@@ -1,9 +1,11 @@
 
 
-This notebook was used to analyse the data produced during the experiments of the 2018 general Italian elections.
-The dataset can be downloaded in: https://github.com/tracking-exposed/experiments-data/tree/master/e18.
+* This notebook was used to generate the results of the paper entitled: "Biases in the Facebook News Feed: a Case Study on the Italian Elections". The paper was accepted in the International Symposium on Foundations of Open Source Intelligence and Security Informatics FOSINT-SI 2018.
 
-If you use the dataset, pela cite us use the following BibTex text:
+* Dataset needed to analyse the data produced during the experiments of the 2018 general Italian elections. 
+The dataset can be downloaded in: https://github.com/tracking-exposed/experiments-data/tree/master/e18. Additional copies of dataset can be downloaded in: https://github.com/EduardoHargreaves/Effect-of-the-OSN-on-the-elections/Italian Experiment Dataset
+
+* If you use the dataset, pela cite us use the following BibTex text:
 
 @inproceedings{Hargreaves2018c, author = {Hargreaves, Eduardo and Agosti, Claudio and Menasché, Daniel and Neglia, Giovanni  and Reiffers-Masson, Alexandre  and Altman, Eitan }, booktitle = {In Proceedings of the IEEE/ACM International Conference on Social Networks Analysis and Mining (ASONAM 2018). Barcelona, Spain. August, 2018}, title = {{Biases in the Facebook News Feed: a Case Study on the Italian Elections}}, year = {2018} }
 
