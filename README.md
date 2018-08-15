@@ -1,12 +1,8 @@
-# Effect-of-the-OSN-on-the-elections
+# Fairness and Bias in the Facebook News Feed
 
-The dataset generate by the facebook.tracking.exposed team which was used in the paper: "Visibilidade no Facebook: Modelo, Medições e Implicações" can be found in: 
-https://github.com/tracking-exposed/experiments-data/tree/master/e18.
+This repository contains the dataset and R codes needed to analyse the bias of the Facebook News Feed Algorithm. The 2018 General Italian Elections experiment served as a case study. Later, we propose fair methods to design timelines.
 
-The R notebook necessary to generate the statiscal analysis, the model validation and the what-if analysis can be found in:
-Italian_Experiment_pt.Rmd.
-
-If you use the dataset, please cite our complete work that will appear in The 36th International Symposium on Computer Performance, 
+If you use the dataset, please cite our complete work that will appear in the 36th International Symposium on Computer Performance, 
 Modeling, Measurements and Evaluation 2018.
 
 ```
