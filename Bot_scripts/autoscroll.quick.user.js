@@ -355,7 +355,7 @@ function timeline(reference) {
 
         scrollTo(0, reference.y);
 
-        return _.delay(timeline, AWAITSECS * 1000, reference);
+        return _.delay(timeline, AWAITSECS * 100, reference);
     }
 }
 
