@@ -1,0 +1,781 @@
+---
+title: "Italian_experiment"
+output: html_document
+---
+
+The code below was used to analyse data produced during the Italian 2018 electoral campaign experiment. The dataset can be downloaded in: https://github.com/tracking-exposed/experiments-data/tree/master/e18.
+
+If you use the dataset or this code we encourage you to cite our work using the following BibTeX citation:
+
+
+@unpublished{FacebookFairness,
+author = {Hargreaves, Eduardo and Agosti, Claudio and Menasch{\'{e}}, Daniel and Neglia, Giovanni and Reiffers-masson, Alexandre and Altman, Eitan},
+booktitle = {to appear in the 36th International Symposium on Computer Performance, Modeling, Measurements and Evaluation 2018},
+title = {{Fairness in Online Social Network Timelines : Measurements , Models and Mechanism Design}}
+}
+
+```{r message=FALSE, warning=FALSE}
+library(lubridate)
+library(jsonlite)
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(plotly)
+library(stringr)
+library(magrittr)
+library(broom)
+library(forcats)
+library(scales)
+library(modelr) 
+options(na.action = na.warn)
+library(Metrics)
+
+
+#library(prophet)
+```
+
+#Dataset Loading and Filtering
+
+```{r loading}
+dataset <- fromJSON('/Users/Eduardo/Google Drive/Facebook Experiments/Italian_dataset/opendata-e18.array.json')
+dataset_FB_API <- fromJSON('/Users/Eduardo/Google Drive/Facebook Experiments/Italian_dataset/api-posts-e18.array.json')
+
+```
+
+
+```{r filtering}
+# parameters
+top_positions <- 1
+periodBegin <- '2018-01-06'
+periodEnd <- '2018-03-06'
+# In the Facebook API, a user can publish in a page. In this case, the page appears in pageName and the user appears in from.name. In Asonam paper, we accounted only for posts from the selected publishers
+dataset_FB_API$fromName <- dataset_FB_API$from$name
+dataset_FB_API <- dataset_FB_API %>% select(-`_id`,-`likes`,-`shares`,-`from`)
+dataset_FB_API <- dataset_FB_API %>% filter(publisherName==fromName)
+dataset_FB_API$`fromName` <- NULL
+#head(dataset)
+dataset$`_id` <- NULL
+dataset <- filter(dataset, impressionTime >= periodBegin & impressionTime <= periodEnd)
+dataset_FB_API <- filter(dataset_FB_API, created_time >= periodBegin  & created_time <= periodEnd ) 
+```
+
+
+
+#Factor enhancements to help the visualization
+```{r Factor Creation}
+
+dataset <- dataset %>% mutate(publisherName = fct_recode(publisherName, 
+  "Lega Salvini"= "Lega - Salvini Premier",
+  "Fascisti uniti"=
+    "Fascisti uniti per L'italia",
+  "M5S"="MoVimento 5 Stelle",
+  "Il Primato..." = 	"Il Primato Nazionale",
+  "Il Fatto Quoti"="Il Fatto Quotidiano",
+  "M. RenziNs"="Matteo Renzi News",
+  "P. Democratico"="Partito Democratico",
+  "Il manifesto"="il manifesto",
+  "La Repubblica"="la Repubblica",
+  "L.Borgonzoni"="Lucia Borgonzoni",
+  "Adesso ti inf"="Adesso ti informo",
+  "CasaPound"="CasaPound Italia",
+  "Lotta Studt"="Lotta Studentesca",
+  "Articolo UNO"="Articolo UNO - Movimento Democratico e Progressista"
+))
+
+dataset_FB_API <- dataset_FB_API %>% mutate(publisherName = fct_recode(publisherName, 
+ "Lega Salvini"= "Lega - Salvini Premier",
+  "Fascisti uniti"=
+    "Fascisti uniti per L'italia",
+  "M5S"="MoVimento 5 Stelle",
+  "Il Primato..." = 	"Il Primato Nazionale",
+  "Il Fatto Quoti"="Il Fatto Quotidiano",
+  "M. RenziNs"="Matteo Renzi News",
+  "P. Democratico"="Partito Democratico",
+  "Il manifesto"="il manifesto",
+  "La Repubblica"="la Repubblica",
+  "L.Borgonzoni"="Lucia Borgonzoni",
+  "Adesso ti inf"="Adesso ti informo",
+  "CasaPound"="CasaPound Italia",
+  "Lotta Studt"="Lotta Studentesca",
+  "Articolo UNO"="Articolo UNO - Movimento Democratico e Progressista"
+))
+
+pub_levels <- c( "Articolo UNO","Giuseppe Civati","Il manifesto","Laura Boldrini","Possibile","Sinistra Italiana",
+                 "Adesso ti inf","Democratica","La Repubblica","Matteo Renzi","M. RenziNs","P. Democratico",
+                 "Beppe Grillo","Il Fatto Quoti","Luigi Di Maio","M5S news","M5S","W IL M5S",
+                 "Giorgia Meloni","Il Giornale","Il Populista","Lega Salvini","L.Borgonzoni","Noi con Salvini",
+                 "CasaPound","Fascisti uniti","Forza Nuova","Il Primato...","Lotta Studt","Ordine Futuro","Roberto Fiore"
+)
+
+dataset$publisherName_re_ordered <- dataset$publisherName %>% fct_relevel("Articolo UNO","Giuseppe Civati","Il manifesto","Laura Boldrini","Possibile","Sinistra Italiana",
+                 "Adesso ti inf","Democratica","La Repubblica","Matteo Renzi","M. RenziNs","P. Democratico",
+                 "Beppe Grillo","Il Fatto Quoti","Luigi Di Maio","M5S news","M5S","W IL M5S",
+                 "Giorgia Meloni","Il Giornale","Il Populista","Lega Salvini","L.Borgonzoni","Noi con Salvini",
+                 "CasaPound","Fascisti uniti","Forza Nuova","Il Primato...","Lotta Studt","Ordine Futuro","Roberto Fiore") 
+
+dataset_FB_API$publisherName_re_ordered <- dataset_FB_API$publisherName %>% fct_relevel("Articolo UNO","Giuseppe Civati","Il manifesto","Laura Boldrini","Possibile","Sinistra Italiana",
+                 "Adesso ti inf","Democratica","La Repubblica","Matteo Renzi","M. RenziNs","P. Democratico",
+                 "Beppe Grillo","Il Fatto Quoti","Luigi Di Maio","M5S news","M5S","W IL M5S",
+                 "Giorgia Meloni","Il Giornale","Il Populista","Lega Salvini","L.Borgonzoni","Noi con Salvini",
+                 "CasaPound","Fascisti uniti","Forza Nuova","Il Primato...","Lotta Studt","Ordine Futuro","Roberto Fiore") 
+
+```
+
+```{r}
+source_posts <- dataset %>% group_by(publisherName,publisherOrientation) %>% distinct(postId) %>% summarise(posts = n())
+snapshots <- dataset %>% group_by(profileAlign) %>% summarise(snapshots = n_distinct(timelineId))
+snapshots <- snapshots %>% mutate(maxSnapshots=max(snapshots))
+```
+
+
+
+#Data Transformation and creation of a tidy dataset and statics
+
+
+
+Create a tidy dataset, with a new collumn account for the slice of the timeline 
+```{r creation of a tidydataset, message = FALSE}
+topSelection <-  dataset %>% filter(impressionOrder==1) %>%  group_by(profileAlign,publisherName)  %>%  summarise (top_position=1, unique_posts=n_distinct(postId),views=n())
+topSelection <- topSelection %>%  complete(publisherName, fill=list(top_position=1,unique_posts=0,views=0))
+#complete(group, nesting(item_id, item_name))
+
+presence <- dataset %>% filter(impressionOrder==1) %>% group_by(profileAlign,publisherName,timelineId) %>% tally()
+#presence <- presence %>% complete(publisherName,fill=list(n=0))
+presence <- presence  %>% group_by(profileAlign,publisherName) %>% summarize(presence=n())
+
+#topSelection <- inner_join(topSelection,presence)
+topSelection <- left_join(topSelection,presence)
+
+
+TTL <- dataset %>% filter(impressionOrder==1) %>% group_by(publisherName,profileAlign,postId) %>% summarise(lifespan=max(visualizationDiff)) 
+TTL <- TTL %>% group_by(publisherName,profileAlign) %>% summarise(top_position=1,total_lifespan=sum(lifespan)) 
+
+for (i in 2:40 ){
+  
+tmp_loop <-  dataset %>% filter(impressionOrder<=i ) %>%  group_by(profileAlign,publisherName)  %>%  summarise (top_position=i,views=n(),unique_posts=n_distinct(postId))
+tmp_loop <- tmp_loop %>%  complete(publisherName, fill=list(top_position=i,unique_posts=0,views=0))
+presence <- dataset %>% filter(impressionOrder<=i) %>% group_by(profileAlign,publisherName,timelineId) %>% tally()
+#presence <- presence %>% complete(publisherName,fill=list(n=0))
+presence <- presence  %>% group_by(profileAlign,publisherName) %>% summarize(presence=n())
+
+#tmp_loop <- inner_join(tmp_loop,presence)
+tmp_loop <- left_join(tmp_loop,presence)
+
+topSelection <- bind_rows(topSelection, tmp_loop)
+
+TTL_loop <- dataset %>% filter(impressionOrder<=i ) %>% group_by(publisherName,profileAlign,postId) %>% summarise(lifespan=max(visualizationDiff)) 
+TTL_loop <- TTL_loop %>% group_by(publisherName,profileAlign) %>% summarise(top_position=i,total_lifespan=sum(lifespan)) 
+TTL <- bind_rows(TTL, TTL_loop)
+}
+
+```
+
+FB Api Data
+```{r FB Api}
+#by publisher
+source_posts_FB_API <- dataset_FB_API %>% group_by(publisherName,publisherOrientation) %>% summarise(created_posts = n_distinct(postId))
+total_posts <-  dataset_FB_API %>% distinct(postId) %>% summarize(total=n() ) # I need to correct it
+source_posts_FB_API$total_unique_posts <- total_posts$total
+#source_posts_FB_API <-  mutate(source_posts_FB_API,unfiltered_probability=top*created_posts / total_unique_posts )
+
+#by orientation
+
+# it is wrong I need to correct
+posts_produced_by_orientation <- dataset_FB_API %>% group_by(publisherOrientation) %>% distinct(postId) %>% summarize(created_posts=n())
+```
+
+
+
+
+## Results MultiClass
+Create the results table
+```{r Results Creation, message = FALSE}
+#results <- inner_join(tmp_unique, tmp_views)
+results <-inner_join(topSelection, source_posts_FB_API)
+results <-left_join(results, TTL)
+results$top <- as.numeric(results$top_position)
+results <-inner_join(results, snapshots)
+results$presence <- results$presence %>%  replace_na(0)
+results <- mutate(results,occupancy=views / snapshots,
+                  prop_occupancy=occupancy/top,
+                  rate=unique_posts/snapshots,
+                  meanLifespan=total_lifespan/created_posts,
+                  creationRate=created_posts/maxSnapshots,
+                  visibility=presence /snapshots)
+#Merge with FB API data
+results <-inner_join(results, source_posts_FB_API)
+total_rate <- results %>% group_by(profileAlign,top_position) %>% summarize(total_rate=sum(rate))
+results <-inner_join(results, total_rate)
+
+#Statistics with both sources of information
+results <- results %>% mutate(unfiltered_probability=top*created_posts / total_unique_posts )
+results <- mutate(results,blocking_rate=(unique_posts)/(created_posts),
+                  bias=occupancy-unfiltered_probability,
+                  rel_bias=(occupancy-unfiltered_probability)/unfiltered_probability,
+                  prop_bias=bias/top,
+                  bloqued_posts=(created_posts-unique_posts)/snapshots,
+                  occupancyMultiClass=top*rate/total_rate,
+                  bias=occupancyMultiClass-unfiltered_probability,
+                  TTL=views/created_posts,
+                  normRate=rate/top,
+                  visibilityMultiClass=1-exp(-creationRate*TTL)) #normalized by
+
+results$publisherName_re_ordered <- results$publisherName %>% fct_relevel("Articolo UNO","Giuseppe Civati","Il manifesto","Laura Boldrini","Possibile","Sinistra Italiana",
+                 "Adesso ti inf","Democratica","La Repubblica","Matteo Renzi","M. RenziNs","P. Democratico",
+                 "Beppe Grillo","Il Fatto Quoti","Luigi Di Maio","M5S news","M5S","W IL M5S",
+                 "Giorgia Meloni","Il Giornale","Il Populista","Lega Salvini","L.Borgonzoni","Noi con Salvini",
+                 "CasaPound","Fascisti uniti","Forza Nuova","Il Primato...","Lotta Studt","Ordine Futuro","Roberto Fiore")
+```
+
+
+
+#Sanity Check
+```{r Sanity Check}
+
+teste <- dataset %>% mutate(yday = yday(impressionTime)) 
+test <- teste %>% group_by(yday,profileAlign) %>% summarize(snapshots=n_distinct(timelineId)) 
+test <- test %>% mutate(impressionDay=ymd_hms("2018-01-01 12:00:00")+days(yday))  
+test %>%   ggplot(aes(x = impressionDay,y=snapshots,fill=profileAlign)) + geom_bar(stat="identity")+ theme(axis.text.x = element_text(angle = 0, hjust = 1),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=12))
+ggsave("snapshots_per_day.eps")
+```
+
+
+
+
+
+##Results 2 Class
+
+```{r TTL per Class ,message = FALSE}
+results <- results %>% mutate(Likes = ifelse(profileAlign==publisherOrientation ,"yes","no"))
+
+ttlClass <- results %>% group_by(Likes,top_position) %>% 
+summarise(uniquePostsClass=sum(unique_posts),viewsClass=sum(views),createdPostsClass=sum(created_posts))
+ttlClassUser <- results %>% group_by(profileAlign,Likes,top_position) %>% 
+summarise(uniquePostsClassUser=sum(unique_posts),viewsClassUser=sum(views),createdPostsClassUser=sum(created_posts))
+results <-inner_join(results, ttlClass)
+results <-inner_join(results, ttlClassUser)
+results <- results %>% mutate(ttlClass=viewsClass/createdPostsClass, 
+                              occupancyClass=viewsClass/snapshots,
+                              creationRateClass=createdPostsClass/maxSnapshots,
+                              ttlClassIn=viewsClass/uniquePostsClass,
+                              occupancy2Class=creationRate*ttlClass,
+                              modelTtlIn=rate*ttlClassIn,
+                              ttlClassUser=viewsClassUser/createdPostsClassUser,
+                              creationRateClassUser=createdPostsClassUser/maxSnapshots,
+                              modelTtlUser=creationRate*ttlClassUser,
+                              visibility2Class=1-exp(- occupancy2Class))
+
+```
+
+
+
+
+
+#Comparison between FB API and FBtrex data
+
+
+FB API Data and Analysis. The figure below shows that Luigi di Maio is the publisher that produced more contents, followed by Il Giornale and Il Fatto Quotidiano and two sources related to Lega Salvini. La Repubblica appears in the 6th position. 
+
+
+
+```{r}
+(ggplot(source_posts_FB_API, aes(x=reorder(publisherName, -created_posts),y=created_posts,fill=publisherOrientation)) +
+    geom_bar(stat="identity") 
+ +labs(y="Posts Published")
+ +guides(fill=guide_legend(title="Publisher Orientation"))
++ theme(axis.text.x = element_text(angle = 70, hjust = 1),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=12))
+)
+ggsave("publicacoes_por_fonte_API.eps")
+```
+
+```{r}
+source_posts <- dataset %>% group_by(publisherName,publisherOrientation) %>% distinct(postId) %>% summarise(posts = n())
+(ggplot(source_posts, aes(x=reorder(publisherName, -posts),y=posts,fill=publisherOrientation)) +
+    geom_bar(stat="identity")+ theme(axis.text.x = element_text(angle = 70, hjust = 1),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=12))
+ +labs( y="Impressions")
+  +guides(fill=guide_legend(title="Publisher Orientation"))
+)
+ggsave("publicacoes_por_fonte_fbtrex.eps")
+```
+
+
+#Occupancy versus top-k analysis
+
+
+The Figure below shows the occupancy of the two classes, Likes and not Likes, in function of the top-k slice of the News Feed. It is possible to see that only in a few cases, the occupation of the Likes sources is predominant.
+
+
+```{r occupancy versus topmost position }
+(ggplot(filter(results), aes(x=top_position,y=prop_occupancy,fill=Likes)) +   geom_bar(stat="identity",position="fill")+ facet_wrap(~profileAlign)+theme_bw()
+ +labs(x="News Feed size", y="Normalized occupancy")+ theme(legend.position="bottom",axis.text = element_text( size=12, face="bold"),axis.title=element_text(size=12,face="bold"))+guides(fill=guide_legend(title="Likes"))
+)
+
+ggsave("occupancy_over_k.eps")
+
+
+(ggplot(filter(results), aes(x=top_position,y=prop_occupancy,fill=publisherOrientation)) +   geom_bar(stat="identity",position="fill")+ facet_wrap(~profileAlign)+theme_bw()
+ +labs(x="News Feed size", y="Normalized occupancy")+ theme(legend.position="bottom",axis.text = element_text( size=12, face="bold"),axis.title=element_text(size=12,face="bold"))+guides(fill=guide_legend(title="Likes"))
+)
+
+ggsave("occupancy_over_k_party.eps")
+
+```
+
+```{r Visibility measured}
+
+(ggplot(filter(results), aes(x=top_position,y=visibility,fill=Likes)) +   geom_bar(stat="identity",position="fill")+ facet_wrap(~profileAlign)+theme_bw()
+ +labs(x="News Feed size", y="Visiblity")+ theme(legend.position="bottom",axis.text = element_text( size=12, face="bold"),axis.title=element_text(size=12,face="bold"))
+)
+
+(ggplot(filter(results), aes(x=top_position,y=visibility,fill=Likes)) +   geom_bar(stat="identity")+ facet_wrap(~profileAlign)+theme_bw()
+ +labs(x="News Feed size", y="Visiblity")+ theme(legend.position="bottom",axis.text = element_text( size=12, face="bold"),axis.title=element_text(size=12,face="bold"))+guides(fill=guide_legend(title="Likes"))
+)
+
+ggsave("visibility_versus_top_position.eps")
+
+
+(ggplot(filter(results), aes(x=top_position,y=visibility,fill=publisherOrientation)) +   geom_bar(stat="identity")+ facet_wrap(~profileAlign)+theme_bw()
+ +labs(x="News Feed size", y="Visiblity")+ theme(legend.position="bottom",axis.text = element_text( size=12, face="bold"),axis.title=element_text(size=12,face="bold"))+guides(fill=guide_legend(title="Likes"))
+)
+
+ggsave("visibility_versus_top_position_party.eps")
+
+```
+
+
+
+
+#Comparison between FB API and FBtrex data
+
+
+FB API Data and Analysis. The figure below shows that Luigi di Maio is the publisher that produced more contents, followed by Il Giornale and Il Fatto Quotidiano and two sources related to Lega Salvini. La Repubblica appears in the 6th position. 
+
+
+```{r Occupancy_per_user}
+
+
+
+(ggplot(filter(results,top_position=='1' & views >5), aes(x=reorder(publisherName,-created_posts),y=views,fill=Likes))  + facet_wrap(~profileAlign)
+    +geom_bar(stat="identity") +theme_bw()+ theme(axis.text.x = element_text(angle = 90,vjust=0.5, hjust=1),legend.position=c(.945,.88),axis.title.x=element_blank(),text = element_text(size=8.5,face="bold"),legend.text=element_text(size=9))
+  +labs( y="Impressions")
+  +guides(fill=guide_legend(title="Likes"))
+  +geom_point(aes(x=publisherName,y=created_posts/36), size = 1) 
+ +scale_y_continuous(sec.axis = sec_axis(~.*36, name = "Created Posts"))
+)
+ggsave("publicacoes_por_fonte_e_user_no_top.eps")
+
+
+
+(ggplot(filter(results,top_position=='10' & occupancy/top > 0.015), aes(x=reorder(publisherName,-created_posts),y=views,fill=Likes))  + facet_wrap(~profileAlign)
+    +geom_bar(stat="identity") +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=9))
+  +labs( y="Impressions")
+  +guides(fill=guide_legend(title="Likes"))
+  +geom_point(aes(x=publisherName,y=created_posts/6), size = 1) 
+ +scale_y_continuous(sec.axis = sec_axis(~.*6, name = "Created Posts"))
+)
+ggsave("publicacoes_por_fonte_e_user_no_top10.eps")
+
+
+(ggplot(filter(results,top_position=='20' & occupancy/top > 0.015), aes(x=reorder(publisherName,-created_posts),y=views,fill=Likes))  + facet_wrap(~profileAlign)
+    +geom_bar(stat="identity") +theme_bw()+ theme(axis.text.x = element_text(angle = 45, hjust = 1),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=9))
+  +labs( y="Impressions")
+  +guides(fill=guide_legend(title="Likes"))
+  +geom_point(aes(x=publisherName,y=created_posts/4), size = 1) 
+ +scale_y_continuous(sec.axis = sec_axis(~.*4, name = "Created Posts"))
+)
+ggsave("publicacoes_por_fonte_e_user_no_top20.eps")
+
+```
+```{r Visibility_per_user}
+
+
+
+(ggplot(filter(results,top_position=='1' & views >5), aes(x=reorder(publisherName,-created_posts),y=visibility,fill=Likes))  + facet_wrap(~profileAlign)
+    +geom_bar(stat="identity") +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=8,face="bold"))
+  +labs( y="Visibility")
+  +guides(fill=guide_legend(title="Likes"))
+  +geom_point(aes(x=publisherName,y=created_posts/20000), size = 1) 
+ +scale_y_continuous(sec.axis = sec_axis(~.*20000, name = "Created Posts"))
+)
+ggsave("visiblity_top.eps")
+
+
+
+(ggplot(filter(results,top_position=='10' & occupancy/top > 0.015), aes(x=reorder(publisherName,-created_posts),y=visibility,fill=Likes))  + facet_wrap(~profileAlign)
+    +geom_bar(stat="identity") +theme_bw()+ theme(axis.text.x = element_text(angle = 70, hjust = 1),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=9))
+  +labs( y="Visibility")
+  +guides(fill=guide_legend(title="Publisher orientation"))
+  +geom_point(aes(x=publisherName,y=created_posts/9000), size = 1) 
+ +scale_y_continuous(sec.axis = sec_axis(~.*9000, name = "Created Posts"))
+)
+#ggsave("visibility_top10.eps")
+
+
+(ggplot(filter(results,top_position=='30' & occupancy/top > 0.015), aes(x=reorder(publisherName,-created_posts),y=visibility,fill=Likes))  + facet_wrap(~profileAlign)
+    +geom_bar(stat="identity") +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=9,face="bold"))
+  +labs( y="Visibility")
+  +guides(fill=guide_legend(title="Likes"))
+  +geom_point(aes(x=publisherName,y=created_posts/9000), size = 1) 
+ +scale_y_continuous(sec.axis = sec_axis(~.*9000, name = "Created Posts"))
+)
+ggsave("visibility_top30.eps")
+
+```
+
+
+## Time_to_live
+
+
+The plot below shows that the TTL of the Likes class is higher than the TTL of the non-Likes class. 
+```{r TTL}
+(ggplot(results,aes(x=top,y=ttlClass,color=Likes)) + geom_line())
+```
+
+
+#TTL Model Validation
+
+
+
+
+
+
+
+Validation of the TTL per class model. Three plots, one for the topmost position, other for the top-10 and another one for the top-30. I think that neither of the three, explains well the data. The formula for TTL model is: $\lambda_j T_{c}$. I've tried also $\lambda_j T_{ic}$, but the results are similar.
+
+
+
+
+
+
+```{r 2class Visibility Validation K30}
+
+(ggplot(filter(results,top==30), aes(x=visibility2Class, y=visibility)) +
+    geom_point()+labs(x='Visibility (Model)', y='Visibility (Measurements)')
+ + geom_line(aes(x=visibility,y=visibility))+theme_bw()
+ + theme(axis.text = element_text( size=17, face="bold"),axis.title=element_text(size=17,face="bold"))
+)
+
+model_eval_vis_30 =lm(visibility ~ visibility2Class , data=filter(results,top==30))
+summary(model_eval_vis_30)
+tmp <- filter(results,top==30)
+rmse(tmp$visibility2Class, tmp$visibility)
+ggsave("validacaoVisibility2Class_30.eps")
+
+
+
+```
+
+```{r 2class Visibility Validation K1}
+
+(ggplot(filter(results,top==1), aes(x=visibility2Class, y=visibility)) +
+    geom_point()+labs(x='Visibility (Model)', y='Visibility (Measurements)')
+ + geom_line(aes(x=visibility,y=visibility))+theme_bw()
+ + theme(axis.text = element_text( size=17, face="bold"),axis.title=element_text(size=17,face="bold"))
+)
+
+model_eval_vis_1 =lm(visibility ~visibility2Class , data=filter(results,top==1))
+summary(model_eval_vis_1)
+tmp <- filter(results,top==1)
+rmse(tmp$visibility2Class, tmp$visibility)
+ggsave("validacaoVisibility2Class_1.eps")
+
+
+
+```
+
+
+```{r  2 class Occupancy validation K30}
+(ggplot(filter(results,top==30), aes(x=occupancy2Class, y=occupancy)) +
+    geom_point()+labs(x='Occupancy (Model)', y='Occupancy (Measurements)')
+ + geom_line(aes(x=occupancy,y=occupancy))+theme_bw()
+ + theme(axis.text = element_text( size=17, face="bold"),axis.title=element_text(size=17,face="bold"))
+)
+model_eval_30 <- lm(occupancy ~ occupancy2Class, data=filter(results,top==30))
+summary(model_eval_30)
+tmp <- filter(results,top==30)
+rmse(tmp$occupancy2Class, tmp$occupancy)
+ggsave("validacaoOccupancy2Class_30.eps")
+
+```
+
+
+```{r  2 class Occupancy validation K1}
+(ggplot(filter(results,top==1), aes(x=occupancy2Class, y=occupancy)) +
+    geom_point()+labs(x='Occupancy (Model)', y='Occupancy (Measurements)')
+ + geom_line(aes(x=occupancy,y=occupancy))+theme_bw()
+ + theme(axis.text = element_text( size=17, face="bold"),axis.title=element_text(size=17,face="bold"))
+)
+model_eval_1 <- lm(occupancy ~ occupancy2Class, data=filter(results,top==1))
+summary(model_eval_1)
+tmp <- filter(results,top==1)
+rmse(tmp$occupancy2Class, tmp$occupancy)
+ggsave("validacaoOccupancy2Class_1.eps")
+
+```
+
+```{r Multiclass Visibility Validation K30}
+
+(ggplot(filter(results,top==30), aes(x=visibilityMultiClass, y=visibility)) +
+    geom_point()+labs(x='Visibility (Model)', y='Visibility (Measurements)')
+ + geom_line(aes(x=visibility,y=visibility))+theme_bw()
+ + theme(axis.text = element_text( size=17, face="bold"),axis.title=element_text(size=17,face="bold"))
+)
+
+model_eval_vis_30 =lm(visibility ~ visibilityMultiClass , data=filter(results,top==30))
+summary(model_eval_vis_30)
+tmp <- filter(results,top==30)
+rmse(tmp$visibilityMultiClass, tmp$visibility)
+ggsave("validacaoVisibilityMultiClass_30.eps")
+
+
+
+```
+
+```{r Multiclass Visibility Validation K1}
+
+(ggplot(filter(results,top==1), aes(x=visibilityMultiClass, y=visibility)) +
+    geom_point()+labs(x='Visibility (Model)', y='Visibility (Measurements)')
+ + geom_line(aes(x=visibility,y=visibility))+theme_bw()
+ + theme(axis.text = element_text( size=17, face="bold"),axis.title=element_text(size=17,face="bold"))
+)
+
+model_eval_vis_1 =lm(visibility ~visibilityMultiClass , data=filter(results,top==1))
+summary(model_eval_vis_1)
+tmp <- filter(results,top==1)
+rmse(tmp$visibilityMultiClass, tmp$visibility)
+ggsave("validacaoVisibilityMultiClass_1.eps")
+
+
+
+```
+
+
+```{r  Multiclass Occupancy validation K30}
+(ggplot(filter(results,top==30), aes(x=occupancyMultiClass, y=occupancy)) +
+    geom_point()+labs(x='Occupancy (Model)', y='Occupancy (Measurements)')
+ + geom_line(aes(x=occupancy,y=occupancy))+theme_bw()
+ + theme(axis.text = element_text( size=17, face="bold"),axis.title=element_text(size=17,face="bold"))
+)
+model_eval_30 <- lm(occupancy ~ occupancyMultiClass, data=filter(results,top==30))
+summary(model_eval_30)
+tmp <- filter(results,top==30)
+rmse(tmp$occupancyMultiClass, tmp$occupancy)
+ggsave("validacaoOccupancyMultiClass_30.eps")
+
+```
+
+
+```{r  Multiclass Occupancy validation K1}
+(ggplot(filter(results,top==1), aes(x=occupancyMultiClass, y=occupancy)) +
+    geom_point()+labs(x='Occupancy (Model)', y='Occupancy (Measurements)')
+ + geom_line(aes(x=occupancy,y=occupancy))+theme_bw()
+ + theme(axis.text = element_text( size=17, face="bold"),axis.title=element_text(size=17,face="bold"))
+)
+model_eval_1 <- lm(occupancy ~ occupancyMultiClass, data=filter(results,top==1))
+summary(model_eval_1)
+tmp <- filter(results,top==1)
+rmse(tmp$occupancyMultiClass, tmp$occupancy)
+ggsave("validacaoOccupancyMultiClass_1.eps")
+
+```
+
+
+
+
+
+##Fairness
+
+
+```{r Fairness Calculation}
+
+Fairness <- results %>% mutate(ProportionalFairness=creationRate*top/((1+1)*creationRateClassUser),
+                                    weight=1,
+                                   PotentialDelay=creationRate*top/((sqrt(1)+sqrt(1))*creationRateClassUser),
+                                    MaxMin = creationRate*top/(2*creationRateClassUser)
+                                 )
+for (i in 2:10){
+ temp <- results %>% mutate(ProportionalFairness= ifelse(Likes=="yes", creationRate*i*top/((i+1)*creationRateClassUser), creationRate*1*top/((i+1)*creationRateClassUser)),
+                                    weight=i,
+                                    PotentialDelay= ifelse(Likes=="yes", creationRate*sqrt(i)*top/(sqrt(i+1)*creationRateClassUser), creationRate*top/((sqrt(i)+sqrt(1))*creationRateClassUser)),
+                                    MaxMin = creationRate*top/(2*creationRateClassUser)
+                                    )
+                            
+     
+   Fairness <- bind_rows(Fairness, temp)                           
+}
+ 
+Fairness$weight <- as.numeric(Fairness$weight)
+
+Fairness$Facebook <- Fairness$occupancy
+
+
+                                
+
+Fairness <- Fairness %>% gather(`ProportionalFairness`,`PotentialDelay`,`MaxMin`,`Facebook`,key=fairnessType,value=fairnessOccupancy)
+Fairness <- Fairness %>% complete(publisherName,fill=list(FairnessOccupancy=0))
+
+Fairness <- Fairness %>% mutate(fairnessOccupancy= ifelse(profileAlign=="undecided" & fairnessType!="Facebook" , unfiltered_probability, fairnessOccupancy))
+                        
+
+Fairness <- Fairness %>% mutate(fairnessBiasFB=fairnessOccupancy-occupancy,
+                                fairnessBias=fairnessOccupancy-unfiltered_probability )
+```
+
+
+
+```{r Fairness Occupancy}
+(ggplot(filter(Fairness,top==30 & fairnessType=="ProportionalFairness" & profileAlign!="undecided"), aes(x=reorder(publisherName,-created_posts),y=fairnessOccupancy,colour=weight,group=weight))+geom_line()
+ +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=8,face="bold"))+labs( y="Occupancy")+guides(colour=guide_legend(title="Liked class weight"))
+ +facet_wrap(~profileAlign)
+)
+ggsave("propFairness_por_peso_no_top30.eps")
+
+
+(ggplot(filter(Fairness,top==30, fairnessType=="ProportionalFairness", weight==1), aes(x=reorder(publisherName,-created_posts),y=fairnessOccupancy,fill=Likes))  + facet_wrap(~profileAlign)
+    +geom_bar(stat="identity") +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position=c(.945,.88),axis.title.x=element_blank(),text = element_text(size=8,face="bold"))
+  +labs( y="Occupancy")
+  +guides(fill=guide_legend(title="Likes"))
+  +geom_point(aes(x=publisherName,y=creationRate/1.4,shape=1), size = 0.7) 
+  +scale_shape_identity()+geom_point(aes(x=publisherName,y=occupancy,shape=3),  size = 0.7) +geom_line(aes(x=publisherName,y=occupancy,group=fairnessType),size = 0.3)
+ +scale_y_continuous(sec.axis = sec_axis(~.*1.4, name = "Publishing Rate"))
+)
+ggsave("propFairness_por_fonte_e_user_no_top30.eps")
+
+
+```
+
+
+
+```{r Multiple Fairness}
+
+(ggplot(filter(Fairness,top==1 & weight==2  ), aes(x=reorder(publisherName,-created_posts),y=fairnessOccupancy,colour=fairnessType ,shape=fairnessType))
+ +geom_point()
+  +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=8,face="bold"))+labs( y="Occupancy",colour  = "Fairness Type", shape = "Fairness Type")
+ 
+ +facet_wrap(~profileAlign)
+)
+
+
+
+
+ggsave("MultiFairness_top.eps")
+```
+
+
+```{r Fairness Bias FB baseline}
+(ggplot(filter(Fairness,top==1 & weight==2 & fairnessType!="Facebook"), aes(x=reorder(publisherName,-created_posts),y=fairnessBiasFB,colour=fairnessType,shape=fairnessType))+geom_point()
+ +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=8,face="bold"))+labs( y="Bias",colour  = "Fairness Type", shape = "Fairness Type")
+ +facet_wrap(~profileAlign)
+)
+ggsave("BiasFB_top.eps")
+
+
+(ggplot(filter(Fairness,top==30 & weight==2 & fairnessType!="Facebook" ), aes(x=reorder(publisherName,-created_posts),y=fairnessBiasFB/top,colour=fairnessType,shape=fairnessType))+geom_point()
+ +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=8,face="bold"))+labs( y="Bias",colour  = "Fairness Type", shape = "Fairness Type")
+ +facet_wrap(~profileAlign)
+)
+ggsave("BiasFB_top30.eps")
+```
+
+
+
+
+```{r Fairness Bias}
+#with lines
+(ggplot(filter(Fairness,top==1 & weight==1 & fairnessType!="ProportionalFairness"  ), aes(x=reorder(publisherName,-created_posts),y=fairnessBias,colour=fairnessType,group=fairnessType,shape=fairnessType))+geom_point()+geom_line()
+ +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=9))+labs( y="Bias",colour  = "Fairness Type", shape = "Fairness Type")
+ +facet_wrap(~profileAlign)
+)
+#ggsave("Bias_top.eps")
+
+#with bars
+(ggplot(filter(Fairness,top==1 & weight==1 & fairnessType!="ProportionalFairness"   ), aes(x=reorder(publisherName,-created_posts),y=fairnessBias,colour=fairnessType,shape=fairnessType))+geom_point(size=0.8)+geom_line()
+ +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=9))+labs( y="Bias",colour  = "Fairness Type", shape = "Fairness Type")
+ +facet_wrap(~profileAlign)
+)
+
+(ggplot(filter(Fairness,top==1 & weight==1 & fairnessType=="ProportionalFairness"), aes(x=reorder(publisherName,-created_posts),y=fairnessBias,fill=Likes))+geom_bar(stat="identity")  
+ +theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position=c(0.89,0.39),axis.title.x=element_blank(),text = element_text(size=9,face="bold"), legend.direction = "horizontal",legend.text=element_text(size=9))
+   +scale_shape_identity()+geom_point(aes(x=publisherName,y=bias,shape=3),  size = 0.7)
+  +labs( y="Bias") #+geom_line(aes(x=publisherName,y=occupancy,group=fairnessType),size = 0.3)
+  +scale_y_continuous(limits = c(-0.25, 0.35))
+  +facet_wrap(~profileAlign)
+)
+ggsave("Bias_top.eps")
+
+(ggplot(filter(Fairness,top==30 & weight==1 & fairnessType!="ProportionalFairness"  ), aes(x=reorder(publisherName,-created_posts),y=fairnessBias/top,colour=fairnessType,group=fairnessType,shape=fairnessType))+geom_point()+geom_line()
+ +theme_bw()+ theme(axis.text.x = element_blank(),legend.position=c(0.9,0.4),axis.title.x=element_blank(),text = element_text(size=8,face="bold"))+labs( y="Bias",colour  = "Fairness Type", shape = "Fairness Type")
+ +facet_wrap(~profileAlign)
+  +geom_line()
+)
+#ggsave("Bias_top30.eps")
+
+
+
+(ggplot(filter(Fairness,top==30 & weight==1 & fairnessType=="ProportionalFairness"), aes(x=reorder(publisherName,-created_posts),y=fairnessBias/top,fill=Likes))+geom_bar(stat="identity")  
+ +theme_bw() + theme(axis.text.x = element_blank(),legend.position="none",axis.title.x=element_blank(),text = element_text(size=8,face="bold"))
+  +scale_shape_identity()+geom_point(aes(x=publisherName,y=bias/top,shape=3),  size = 0.7)
+  +labs( y="Bias") #+geom_line(aes(x=publisherName,y=occupancy,group=fairnessType),size = 0.3)
+  +scale_y_continuous(limits = c(-0.25, 0.35))
+  +facet_wrap(~profileAlign)
+)
+
+ggsave("Bias_top30.eps")
+
+
+
+(ggplot(filter(Fairness,top==30 & weight==1 & fairnessType!="Facebook" & fairnessType!="MaxMin"), aes(x=reorder(publisherName,-created_posts),y=fairnessBias/top,colour=fairnessType,shape=fairnessType))+geom_point()+geom_line()
+ +theme_bw() + theme(axis.text.x = element_blank(),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=9))
+  #+scale_shape_identity()
+  +labs( y="Bias") #+geom_line(aes(x=publisherName,y=occupancy,group=fairnessType),size = 0.3)
+ +facet_wrap(~profileAlign)
+)
+
+
+ggsave("Bias_prop_potential.eps")
+```
+
+
+
+
+```{r}
+tmp <-  Fairness %>% filter(top==1 & weight==1 ) %>% group_by(profileAlign,Likes,fairnessType) %>% summarise(fairnessBias=sum(fairnessBias),fairnessBiasFB=sum(fairnessBiasFB)) 
+
+(ggplot(tmp,aes(x=Likes,y=fairnessBias,colour=fairnessType))+geom_point()
+ +theme_bw()+ theme(axis.text.x = element_text(angle = 70, hjust = 1),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=9))+labs( y="Bias")+guides(colour=guide_legend(title="Fairness Type"))
+ +facet_wrap(~profileAlign)+coord_flip()
+)
+
+(ggplot(filter(tmp,fairnessType!="Facebook" & fairnessType!="ProportionalFairness"),aes(x=Likes,y=fairnessBiasFB,colour=fairnessType))+geom_point()
+ +theme_bw()+ theme(axis.text.x = element_text(angle = 70, hjust = 1),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=9))+labs( y="Bias")+guides(colour=guide_legend(title="Fairness Type"))
+ +facet_wrap(~profileAlign)+coord_flip()
+)
+
+#ggsave("Bias_top.eps")
+```
+
+
+```{r Sanity check Fairness}
+
+filter(Fairness,top==1, weight==10) %>% group_by(profileAlign,fairnessType) %>% summarize(bias=sum(fairnessBias),occupancy=sum(fairnessOccupancy))
+
+filter(Fairness,top==1,weight==10) %>% group_by(profileAlign,fairnessType) %>% summarize(occupancy=sum(unfiltered_probability))
+
+Fairness <- Fairness %>% mutate(TTL=fairnessOccupancy/creationRate) 
+
+
+(ggplot(filter(Fairness,fairnessType=="ProportionalFairness", top==30 , weight==1), aes(x=reorder(publisherName,-created_posts),y=TTL,fill=Likes))  + facet_wrap(~profileAlign)
+  +geom_bar(stat="identity")  
+ +theme_bw()+ theme(axis.text.x = element_text(angle = 70, hjust = 1),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=9))
+  +labs( y="Occupancy")
+  +guides(fill=guide_legend(title="Publisher orientation"))
+  #+geom_point(aes(x=publisherName,y=creationRate/1.8), size = 0.5) 
+  #+scale_shape_identity()+geom_point(aes(x=publisherName,y=occupancy,shape=4), , size = 0.5) 
+# +scale_y_continuous(sec.axis = sec_axis(~.*1.8, name = "Publishing Rate"))
+)
+
+
+ggsave("TTL_check.eps")
+```
+
+
