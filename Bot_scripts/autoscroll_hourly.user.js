@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         autoscroll
 // @namespace    autoscroll
-// @version      1.18
+// @version      1.19
 // @description  autoscroller to be used with https://facebook.tracking.exposed, This userscript works with TamperMoneky extension.
-// @author       Claudio Agosti @_vecna
+// @author       Claudio Agosti @_vecna, Eduardo Hargreaves
 // @match        https://www.facebook.com/*
 // @connect      autoscroll
 // @grant        GM_setValue
