@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         autoscroll
 // @namespace    autoscroll
-// @version      1.20
+// @version      1.21
 // @description  autoscroller to be used with https://facebook.tracking.exposed, This userscript works with TamperMoneky extension.
 // @author       Claudio Agosti @_vecna, Eduardo Hargreaves
 // @match        https://www.facebook.com/*
@@ -17,7 +17,7 @@ var AWAITSECS = 5;
 var fixedH = 800;
 
 var plan = [
-    "00:00",
+    "00:01",
 "00:10",
 "00:20",
 "00:30",
