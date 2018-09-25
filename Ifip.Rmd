@@ -355,11 +355,11 @@ FB API Data and Analysis. The figure below shows that Luigi di Maio is the publi
 
 
 
-(ggplot(filter(results,top_position=='1' & views >5), aes(x=reorder(publisherName,-created_posts),y=views,fill=Likes))  + facet_wrap(~profileAlign)
-    +geom_bar(stat="identity") +theme_bw()+ theme(axis.text.x = element_text(angle = 90,vjust=0.5, hjust=1),legend.position=c(.945,.88),axis.title.x=element_blank(),text = element_text(size=8.5,face="bold"),legend.text=element_text(size=9))
+(ggplot(filter(results,top_position=='1' & views >5), aes(x=reorder(publisherName,-created_posts),y=views,fill=Likes))  + facet_wrap(~profileAlign,ncol=2)
+    +geom_bar(stat="identity") +theme_bw()+ theme(axis.text.x = element_text(angle = 90,vjust=0.5, hjust=1),legend.position=c(0.86,0.93),axis.title.x=element_blank(),text = element_text(size=11,face="bold"),legend.text=element_text(size=8),legend.direction='horizontal')
   +labs( y="Impressions")
-  +guides(fill=guide_legend(title="Likes"))
-  +geom_point(aes(x=publisherName,y=created_posts/36), size = 1) 
+  +guides(fill=guide_legend(title="Likes"),text = element_text(size=9))
+  +geom_point(aes(x=publisherName,y=created_posts/36), size = 0.5) 
  +scale_y_continuous(sec.axis = sec_axis(~.*36, name = "Created Posts"))
 )
 ggsave("publicacoes_por_fonte_e_user_no_top.eps")
@@ -626,7 +626,7 @@ Fairness <- Fairness %>% mutate(fairnessBiasFB=fairnessOccupancy-occupancy,
 ```{r Fairness Occupancy}
 (ggplot(filter(Fairness,top==30 & fairnessType=="ProportionalFairness" & profileAlign!="undecided"), aes(x=reorder(publisherName,-created_posts),y=fairnessOccupancy,colour=weight,group=weight))+geom_line()
  +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=8,face="bold"))+labs( y="Occupancy")+guides(colour=guide_legend(title="Liked class weight"))
- +facet_wrap(~profileAlign)
+ +facet_wrap(~profileAlign,ncol=2)
 )
 ggsave("propFairness_por_peso_no_top30.eps")
 
@@ -764,7 +764,7 @@ filter(Fairness,top==1,weight==10) %>% group_by(profileAlign,fairnessType) %>% s
 Fairness <- Fairness %>% mutate(TTL=fairnessOccupancy/creationRate) 
 
 
-(ggplot(filter(Fairness,fairnessType=="ProportionalFairness", top==30 , weight==1), aes(x=reorder(publisherName,-created_posts),y=TTL,fill=Likes))  + facet_wrap(~profileAlign)
+(ggplot(filter(Fairness,fairnessType=="ProportionalFairness", top==30 , weight==1), aes(x=reorder(publisherName,-created_posts),y=TTL,fill=Likes))  + facet_wrap(~profileAlign,ncol=2)
   +geom_bar(stat="identity")  
  +theme_bw()+ theme(axis.text.x = element_text(angle = 70, hjust = 1),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=9))
   +labs( y="Occupancy")
