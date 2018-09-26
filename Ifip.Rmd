@@ -10,7 +10,7 @@ If you use the dataset or this code we encourage you to cite our work using the 
 
 @unpublished{FacebookFairness,
 author = {Hargreaves, Eduardo and Agosti, Claudio and Menasch{\'{e}}, Daniel and Neglia, Giovanni and Reiffers-masson, Alexandre and Altman, Eitan},
-booktitle = {to appear in the 36th International Symposium on Computer Performance, Modeling, Measurements and Evaluation 2018},
+booktitle = {to appear in the 36th International Symposium on Computer Performance, Modeling, Measurements and Evaluation 2018 (IFIP Performance'18)},
 title = {{Fairness in Online Social Network Timelines : Measurements , Models and Mechanism Design}}
 }
 
@@ -307,14 +307,14 @@ The Figure below shows the occupancy of the two classes, Likes and not Likes, in
 
 ```{r occupancy versus topmost position }
 (ggplot(filter(results), aes(x=top_position,y=prop_occupancy,fill=Likes)) +   geom_bar(stat="identity",position="fill")+ facet_wrap(~profileAlign)+theme_bw()
- +labs(x="News Feed size", y="Normalized occupancy")+ theme(legend.position="bottom",axis.text = element_text( size=12, face="bold"),axis.title=element_text(size=12,face="bold"))+guides(fill=guide_legend(title="Likes"))
+ +labs(x="News Feed size", y="Normalized occupancy")+ theme(legend.position="bottom",axis.text = element_text( size=12, face="bold"),axis.title=element_text(size=12,face="bold"),legend.text=element_text(size=12))+guides(fill=guide_legend(title="Likes"))
 )
 
 ggsave("occupancy_over_k.eps")
 
 
 (ggplot(filter(results), aes(x=top_position,y=prop_occupancy,fill=publisherOrientation)) +   geom_bar(stat="identity",position="fill")+ facet_wrap(~profileAlign)+theme_bw()
- +labs(x="News Feed size", y="Normalized occupancy")+ theme(legend.position="bottom",axis.text = element_text( size=12, face="bold"),axis.title=element_text(size=12,face="bold"))+guides(fill=guide_legend(title="Likes"))
+ +labs(x="News Feed size", y="Normalized occupancy")+ theme(legend.position="bottom",axis.text = element_text( size=12, face="bold"),axis.title=element_text(size=12,face="bold"),legend.text=element_text(size=12))+guides(fill=guide_legend(title="Likes"))
 )
 
 ggsave("occupancy_over_k_party.eps")
@@ -328,14 +328,14 @@ ggsave("occupancy_over_k_party.eps")
 )
 
 (ggplot(filter(results), aes(x=top_position,y=visibility,fill=Likes)) +   geom_bar(stat="identity")+ facet_wrap(~profileAlign)+theme_bw()
- +labs(x="News Feed size", y="Visiblity")+ theme(legend.position="bottom",axis.text = element_text( size=12, face="bold"),axis.title=element_text(size=12,face="bold"))+guides(fill=guide_legend(title="Likes"))
+ +labs(x="News Feed size", y="Visiblity")+ theme(legend.position="bottom",axis.text = element_text( size=12, face="bold"),axis.title=element_text(size=12,face="bold"))+guides(fill=guide_legend(title="Likes"),text = element_text(size=12))
 )
 
 ggsave("visibility_versus_top_position.eps")
 
 
 (ggplot(filter(results), aes(x=top_position,y=visibility,fill=publisherOrientation)) +   geom_bar(stat="identity")+ facet_wrap(~profileAlign)+theme_bw()
- +labs(x="News Feed size", y="Visiblity")+ theme(legend.position="bottom",axis.text = element_text( size=12, face="bold"),axis.title=element_text(size=12,face="bold"))+guides(fill=guide_legend(title="Likes"))
+ +labs(x="News Feed size", y="Visiblity")+ theme(legend.position="bottom",axis.text = element_text( size=12, face="bold"),axis.title=element_text(size=12,face="bold"))+guides(fill=guide_legend(title="Likes"),text = element_text(size=12))
 )
 
 ggsave("visibility_versus_top_position_party.eps")
@@ -390,8 +390,8 @@ ggsave("publicacoes_por_fonte_e_user_no_top20.eps")
 
 
 
-(ggplot(filter(results,top_position=='1' & views >5), aes(x=reorder(publisherName,-created_posts),y=visibility,fill=Likes))  + facet_wrap(~profileAlign)
-    +geom_bar(stat="identity") +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=8,face="bold"))
+(ggplot(filter(results,top_position=='1' & views >5), aes(x=reorder(publisherName,-created_posts),y=visibility,fill=Likes))  + facet_wrap(~profileAlign,ncol=2)
+    +geom_bar(stat="identity") +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position=c(.87,.925),axis.title.x=element_blank(),text = element_text(size=11,face="bold"),legend.direction='horizontal')
   +labs( y="Visibility")
   +guides(fill=guide_legend(title="Likes"))
   +geom_point(aes(x=publisherName,y=created_posts/20000), size = 1) 
@@ -411,8 +411,8 @@ ggsave("visiblity_top.eps")
 #ggsave("visibility_top10.eps")
 
 
-(ggplot(filter(results,top_position=='30' & occupancy/top > 0.015), aes(x=reorder(publisherName,-created_posts),y=visibility,fill=Likes))  + facet_wrap(~profileAlign)
-    +geom_bar(stat="identity") +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=9,face="bold"))
+(ggplot(filter(results,top_position=='30' & occupancy/top > 0.015), aes(x=reorder(publisherName,-created_posts),y=visibility,fill=Likes))  + facet_wrap(~profileAlign,ncol=2)
+    +geom_bar(stat="identity") +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position='bottom',axis.title.x=element_blank(),text = element_text(size=11,face="bold"),legend.direction='horizontal')
   +labs( y="Visibility")
   +guides(fill=guide_legend(title="Likes"))
   +geom_point(aes(x=publisherName,y=created_posts/9000), size = 1) 
@@ -625,7 +625,7 @@ Fairness <- Fairness %>% mutate(fairnessBiasFB=fairnessOccupancy-occupancy,
 
 ```{r Fairness Occupancy}
 (ggplot(filter(Fairness,top==30 & fairnessType=="ProportionalFairness" & profileAlign!="undecided"), aes(x=reorder(publisherName,-created_posts),y=fairnessOccupancy,colour=weight,group=weight))+geom_line()
- +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=8,face="bold"))+labs( y="Occupancy")+guides(colour=guide_legend(title="Liked class weight"))
+ +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=11,face="bold"))+labs( y="Occupancy")+guides(colour=guide_legend(title="Liked class weight"))
  +facet_wrap(~profileAlign,ncol=2)
 )
 ggsave("propFairness_por_peso_no_top30.eps")
@@ -642,6 +642,17 @@ ggsave("propFairness_por_peso_no_top30.eps")
 ggsave("propFairness_por_fonte_e_user_no_top30.eps")
 
 
+(ggplot(filter(Fairness,top==1, fairnessType=="ProportionalFairness", weight==1), aes(x=reorder(publisherName,-created_posts),y=fairnessOccupancy,fill=Likes))  + facet_wrap(~profileAlign,ncol=2)
+    +geom_bar(stat="identity") +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position=c(.87,.93),axis.title.x=element_blank(),text = element_text(size=11,face="bold"),legend.direction='horizontal')
+  +labs( y="Occupancy")
+  +guides(fill=guide_legend(title="Likes"))
+  +geom_point(aes(x=publisherName,y=creationRate/50,shape=1), size = 0.7) 
+  +scale_shape_identity()+geom_point(aes(x=publisherName,y=occupancy,shape=3),  size = 0.7) +geom_line(aes(x=publisherName,y=occupancy,group=fairnessType),size = 0.3)
+ +scale_y_continuous(sec.axis = sec_axis(~.*50, name = "Publishing Rate"))
+)
+ggsave("propFairness_por_fonte_e_user_top.eps")
+
+
 ```
 
 
@@ -650,10 +661,8 @@ ggsave("propFairness_por_fonte_e_user_no_top30.eps")
 
 (ggplot(filter(Fairness,top==1 & weight==2  ), aes(x=reorder(publisherName,-created_posts),y=fairnessOccupancy,colour=fairnessType ,shape=fairnessType))
  +geom_point()
-  +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=8,face="bold"))+labs( y="Occupancy",colour  = "Fairness Type", shape = "Fairness Type")
- 
- +facet_wrap(~profileAlign)
-)
+  +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position='bottom',axis.title.x=element_blank(),text = element_text(size=11,face="bold"),legend.direction='horizontal')+labs( y="Occupancy",colour  = "Fairness Type", shape = "Fairness Type")+facet_wrap(~profileAlign,ncol=2))
+
 
 
 
@@ -664,15 +673,15 @@ ggsave("MultiFairness_top.eps")
 
 ```{r Fairness Bias FB baseline}
 (ggplot(filter(Fairness,top==1 & weight==2 & fairnessType!="Facebook"), aes(x=reorder(publisherName,-created_posts),y=fairnessBiasFB,colour=fairnessType,shape=fairnessType))+geom_point()
- +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=8,face="bold"))+labs( y="Bias",colour  = "Fairness Type", shape = "Fairness Type")
- +facet_wrap(~profileAlign)
+ +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=11,face="bold"))+labs( y="Bias",colour  = "Fairness Type", shape = "Fairness Type")
+ +facet_wrap(~profileAlign,ncol=2)
 )
 ggsave("BiasFB_top.eps")
 
 
 (ggplot(filter(Fairness,top==30 & weight==2 & fairnessType!="Facebook" ), aes(x=reorder(publisherName,-created_posts),y=fairnessBiasFB/top,colour=fairnessType,shape=fairnessType))+geom_point()
- +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=8,face="bold"))+labs( y="Bias",colour  = "Fairness Type", shape = "Fairness Type")
- +facet_wrap(~profileAlign)
+ +theme_bw()+ theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position="bottom",axis.title.x=element_blank(),text = element_text(size=11,face="bold"))+labs( y="Bias",colour  = "Fairness Type", shape = "Fairness Type")
+ +facet_wrap(~profileAlign,ncol=2)
 )
 ggsave("BiasFB_top30.eps")
 ```
@@ -695,11 +704,11 @@ ggsave("BiasFB_top30.eps")
 )
 
 (ggplot(filter(Fairness,top==1 & weight==1 & fairnessType=="ProportionalFairness"), aes(x=reorder(publisherName,-created_posts),y=fairnessBias,fill=Likes))+geom_bar(stat="identity")  
- +theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position=c(0.89,0.39),axis.title.x=element_blank(),text = element_text(size=9,face="bold"), legend.direction = "horizontal",legend.text=element_text(size=9))
+ +theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.5),legend.position=c(0.88,0.565),axis.title.x=element_blank(),text = element_text(size=11,face="bold"), legend.direction = "horizontal",legend.text=element_text(size=9))
    +scale_shape_identity()+geom_point(aes(x=publisherName,y=bias,shape=3),  size = 0.7)
   +labs( y="Bias") #+geom_line(aes(x=publisherName,y=occupancy,group=fairnessType),size = 0.3)
   +scale_y_continuous(limits = c(-0.25, 0.35))
-  +facet_wrap(~profileAlign)
+  +facet_wrap(~profileAlign,ncol=2)
 )
 ggsave("Bias_top.eps")
 
@@ -713,11 +722,11 @@ ggsave("Bias_top.eps")
 
 
 (ggplot(filter(Fairness,top==30 & weight==1 & fairnessType=="ProportionalFairness"), aes(x=reorder(publisherName,-created_posts),y=fairnessBias/top,fill=Likes))+geom_bar(stat="identity")  
- +theme_bw() + theme(axis.text.x = element_blank(),legend.position="none",axis.title.x=element_blank(),text = element_text(size=8,face="bold"))
+ +theme_bw() + theme(axis.text.x = element_blank(),legend.position="none",axis.title.x=element_blank(),text = element_text(size=11,face="bold"))
   +scale_shape_identity()+geom_point(aes(x=publisherName,y=bias/top,shape=3),  size = 0.7)
   +labs( y="Bias") #+geom_line(aes(x=publisherName,y=occupancy,group=fairnessType),size = 0.3)
   +scale_y_continuous(limits = c(-0.25, 0.35))
-  +facet_wrap(~profileAlign)
+  +facet_wrap(~profileAlign,ncol=2)
 )
 
 ggsave("Bias_top30.eps")
