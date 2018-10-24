@@ -17,7 +17,7 @@ var AWAITSECS = 5;
 var fixedH = 800;
 
 var plan = [
-    	"09:05",
+    	"10:05",
 	"21:05"
     ];
 
