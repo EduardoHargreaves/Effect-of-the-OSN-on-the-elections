@@ -17,13 +17,20 @@ library(dplyr)
 library(tidyr)
 library(tidyverse)
 library(plotly)
+library(ggplot2)
 library(stringr)
 library(magrittr)
 library(broom)
 library(forcats)
+library(forecast)
+library(ggfortify)
 library(modelr) 
 options(na.action = na.warn)
 library(Metrics)
+library(rsample)
+library(timetk)    # for `tk_ts`
+library(zoo)       # for `as.yearmon`
+library(purrr)
 ```
 
 #Dataset Loading and Filtering
@@ -53,25 +60,23 @@ periodEnd <- '2018-03-06'
 
 
 ```{r}
+# In the Facebook API, a user can publish in a page. In this case, the page appears in pageName and the user appears in from.name. In Asonam paper, we accounted only for posts from the selected publishers
+dataset_FB_API$fromName <- dataset_FB_API$from$name
+dataset_FB_API <- dataset_FB_API %>% select(-`_id`,-`likes`,-`shares`,-`from`)
+dataset_FB_API <- dataset_FB_API %>% filter(publisherName==fromName)
+dataset_FB_API$`fromName` <- NULL
+```
+
+
+
+
+```{r}
 #head(dataset)
 dataset$`_id` <- NULL
-dataset_FB_API$fromName <- dataset_FB_API$from$name
-dataset_FB_API <- dataset_FB_API %>% select(-`_id`,-`from`,-`likes`,-`shares`)
-#dataset <- dataset %>% mutate(publisherName=replace(publisherName,which(publisherName=="Articolo UNO - Movimento Democratico e Progressista"),"Articolo UNO"))
-dataset_FB_API <- dataset_FB_API %>% filter(publisherName==fromName)
-#dataset_FB_API <- dataset_FB_API %>% mutate(publisherName=replace(publisherName,which(publisherName=="Articolo UNO - Movimento Democratico e Progressista"),"Articolo UNO"))
 dataset <- filter(dataset, impressionTime >= periodBegin & impressionTime <= periodEnd)
 dataset_FB_API <- filter(dataset_FB_API, created_time >= periodBegin  & created_time <= periodEnd ) 
 ```
 
-
-
-It is possible to see that the number of posts per snaphots isn't constant. By slicing the dataset, it is possible to see that some posts are missing in some snapshots.
-
-
-```{r}
-top_dataset <- filter(dataset,impressionOrder<=top_positions  & impressionTime < period) 
-```
 
 
 
@@ -675,14 +680,200 @@ rmse(tmp$visibilityModel, tmp$visibility)
 
 ## Time Series Analysis
 
-```{r Time Series}
+```{r Creating the dataframes}
 
-timeseries <- dataset %>% group_by(timelineId,profileAlign,publisherOrientation) %>% summarize(impressions=n())
-timeseries2 <- dataset %>% group_by(impressionTime,profileAlign,publisherOrientation) %>% summarize(impressions=n())
+dataset$timeRounded <- floor_date(dataset$impressionTime,"hour") 
+ dataset_FB_API$timeRounded <- floor_date(dataset_FB_API$created_time,"hour")
+ timeseries_FB_API <- dataset_FB_API %>% group_by(timeRounded,publisherName,publisherOrientation,publisherName_re_ordered) %>% summarize(posts=n(),engagement=sum(ANGRY)+sum(HAHA)+sum(LOVE)+sum(SAD)+sum(WOW))
+ tmp <- dataset_FB_API %>% group_by(timeRounded) %>% summarize(totalPosts=n())
+ timeseries_FB_API <- left_join(timeseries_FB_API,tmp)
+## error in type of rtotal , not using engagement, yet
+  tmp <- dataset %>% group_by(postId) %>% summarize(firstView=min(impressionTime),repetitions=n())
+  dataset <- left_join(dataset,tmp)
+  dataset<- dataset %>% mutate(isNew=if_else(firstView==impressionTime,1,0))
+dataset$roundedFirstView <- floor_date(dataset$firstView,"hour") 
+timeseries <- dataset %>% group_by(timeRounded,profileName,profileAlign,publisherName,publisherOrientation) %>% summarize(impressions=n(),newImpressions=sum(isNew))
+tmp <- dataset %>% group_by(timeRounded,profileAlign) %>% summarize(totalImpressions=n())
+timeseries <- left_join(timeseries_FB_API,timeseries)
+timeseries <- left_join(timeseries,tmp)
+timeseries <- timeseries %>% mutate(occupancy=impressions/totalImpressions)
 
+timeseries2 <- timeseries %>%  complete(publisherName, fill=list(impressions=0,newImpressions=0))
+timeseries$newImpressions <- timeseries$newImpressions %>%  replace_na(0)
+ # timeseries <- dataset %>% group_by(timelineId,profileAlign,publisherOrientation) %>% summarize(impressions=n())
+``` 
+
+
+             
+```{r plots}
+
+#timeseries2 <- dataset %>% group_by(impressionTime,profileAlign,publisherOrientation) %>% summarize(impressions=n())
+dataset_FB_API %>% filter(publisherName=="M5S") %>% ggplot(aes(created_time)) + geom_freqpoly(binwidth = 3600)
+dataset %>% filter(publisherName=="M5S") %>% ggplot(aes(impressionTime)) + facet_wrap(~profileAlign) + geom_freqpoly(binwidth = 3600)
+
+dataset_FB_API %>% ggplot(aes(created_time)) + geom_freqpoly(binwidth = 3600)
+dataset %>% ggplot(aes(impressionTime)) + facet_wrap(~profileAlign) + geom_freqpoly(binwidth = 3600)
+
+
+dataset_FB_API %>% ggplot(aes(timeRounded)) + facet_wrap(~publisherOrientation)+ geom_freqpoly(binwidth = 3600)
+dataset %>% filter(firstView==impressionTime) %>% ggplot(aes(firstView),color=publisherOrientation) + facet_wrap(~profileAlign) + geom_freqpoly(binwidth = 3600)
+
+dataset %>% filter(firstView==impressionTime) %>% ggplot(aes(firstView)) + facet_wrap(~profileAlign) + geom_freqpoly(binwidth = 3600)
 #(ggplot(timeseries, aes(x=timelineId,y=impressions,color=publisherOrientation))+facet_wrap(~profileAlign)
 #)
 
+ggplot(timeseries, aes(x=timeRounded, y=cumsum(posts))) + geom_line()+geom_line(aes(y=cumsum(newImpressions)))+ facet_wrap(~profileAlign)
+
+ggplot(na.omit(timeseries), aes(x=timeRounded, y=impressions/totalImpressions,colour=publisherOrientation)) + geom_smooth()+ theme(axis.text.x = element_text(angle = 45, hjust = 1),legend.position="bottom")+labs(x="Data", y="Ocupação") + guides(colour=guide_legend(title="Orientação do fonte"))+ facet_wrap(~profileAlign)
+ggsave("series_ocupacao.eps")
+```
+
+```{r more plots}
+
+
+
+ggplot(timeseries, aes(x=timeRounded, y=posts/totalPosts,colour=publisherOrientation)) + geom_smooth()
+
+ggplot(timeseries, aes(x=timeRounded, y=engagement,colour=publisherName_re_ordered)) + geom_smooth()
+
+ timeseries %>% group_by(publisherName_re_ordered,publisherOrientation) %>% summarise(engagementbyPost=sum(engagement)/sum(posts)) %>% 
+ggplot( aes(x=publisherName_re_ordered, y=engagementbyPost,colour=publisherOrientation)) + geom_bar(stat="identity") +
+ theme(axis.text.x = element_text(angle = 90, hjust = 1),legend.position="bottom")
+
+ timeseries %>% group_by(publisherName_re_ordered,publisherOrientation) %>% summarise(engagementPost=sum(engagement)) %>% 
+ggplot( aes(x=publisherName_re_ordered, y=engagementPost,colour=publisherOrientation)) + geom_bar(stat="identity") +
+ theme(axis.text.x = element_text(angle = 90, hjust = 1),legend.position="bottom")
+ 
+ 
+ggplot(filter(timeseries,publisherName=="M5S"), aes(x=timeRounded, y=posts/totalPosts,colour=publisherOrientation)) + geom_point()+geom_smooth()
+
+
+ggplot(filter(timeseries,publisherName=="M5S"), aes(x=timeRounded, y=impressions/posts,colour=publisherOrientation)) + geom_point()+geom_smooth()
+
+ggplot(filter(timeseries,publisherName=="M5S",profileAlign=="indeciso"), aes(x=timeRounded, y=impressions/totalImpressions,colour=publisherOrientation)) + geom_point()+geom_smooth()+ facet_wrap(~profileAlign)
+
+ggplot(filter(timeseries,publisherName=="M5S"), aes(x=timeRounded, y=engagement,colour=publisherOrientation)) + geom_point()+geom_smooth()
+
+```
+
+# Predictions
+```{r Predictions}
+z <- filter(timeseries,publisherName=="M5S",profileAlign=="indeciso") [,"occupancy"]
+y <- ts(z, start=1, frequency=1)
+autoplot(y[,"occupancy"]) +
+  xlab("Snapshot") + ylab("Occupancy")
+(fit <- auto.arima(y[,"occupancy"], seasonal=FALSE,
+  stepwise=FALSE, approximation=FALSE))
+(fit2 <- auto.arima(y[,"occupancy"], seasonal=FALSE))
+fit2 %>% forecast(h=10) %>% autoplot(include=80) +
+  xlab("Snapshot") + ylab("Occupancy")
+fit %>% forecast(h=10) %>% autoplot(include=80) +
+  xlab("Snapshot") + ylab("Occupancy")
+gglagplot(y)
+ggAcf(y[,"occupancy"],main="")
+ggPacf(y[,"occupancy"],main="")
+checkresiduals(fit)
+checkresiduals(fit2)
+autoplot(fit)
+```
+
+```{r}
+z <- filter(timeseries,publisherName=="La Repubblica" & profileAlign=="centro-esquerda") [,"occupancy"]
+y <- ts(z, start=1, frequency=1)
+
+k <- 60 # minimum data length for fitting a model
+n <- length(y)
+mae <- mae2 <- mae3 <- fcastPredictions <- matrix(NA,n-k,1)
+st <- tsp(y)[1]+(k-2)
+
+for(i in 1:(n-k))
+{
+  xshort <- window(y, end=st + i)
+  xnext <- window(y, start=st + (i+1), end=st + (i+1))
+  (fit <- auto.arima(xshort[,"occupancy"], seasonal=FALSE))
+  fcast <- fit %>% forecast(h=1)
+  #fit1 <- tslm(xshort ~ trend + season, lambda=0)
+  #fcast1 <- forecast(fit1, h=12)
+  #fit2 <- Arima(xshort, order=c(3,0,1), seasonal=list(order=c(0,1,1), period=12),
+   #   include.drift=TRUE, lambda=0, method="ML")
+  #fcast2 <- forecast(fit2, h=12)
+  #fit3 <- ets(xshort,model="MMM",damped=TRUE)
+  #fcast3 <- forecast(fit3, h=12)
+  fcastPredictions[i] <- fcast[['mean']]
+ mae[i] <- abs(fcast[['mean']]-xnext)
+  me[i] <- fcast[['mean']]-xnext
+ # mae1[i,1:length(xnext)] <- abs(fcast1[['mean']]-xnext)
+#  mae2[i,1:length(xnext)] <- abs(fcast2[['mean']]-xnext)
+ # mae3[i,1:length(xnext)] <- abs(fcast3[['mean']]-xnext)
+}
+
+start <- matrix(0, k, 1);
+fmp <- rbind(window(y, end=k),fcastPredictions)
+mae <- rbind(start,mae)
+
+x <- as_tibble(fmp)
+w <- left_join(z,x)
+x <- ts(fmp, start=1, frequency=1)
+t <- ts(mae, start=1, frequency=1)
+```
+
+```{r}
+me <- fcast[['mean']]-y[,"occupancy"]
+me <- ts(me, start=1, frequency=1)
+
+autoplot(x[,"occupancy"]) +
+  
+  xlab("Snapshot") + ylab("Occupancy")
+
+autoplot(y[,"occupancy"]) 
+ 
+ts.plot(x, y,t, gpars = list(col = c("black", "red","blue")),xlab="Snapshot",ylab="Occupancy")
+ ggplot(x,aes(x=c(1:k),y=occupancy))
+  
+
+autoplot(t[,"Series 1"]) +
+  
+  xlab("Snapshot") + ylab("Occupancy")
+
+autoplot(me[,"Series 1"]) +
+  
+  xlab("Snapshot") + ylab("Occupancy")
+
+```
+
+```{r}
+
+```
+
+```{r}
+roll_rs <- rolling_origin(
+  y, 
+  initial = 60, 
+  assess = 1,
+  cumulative = TRUE
+  )
+nrow(roll_rs)
+
+get_date <- function(x) 
+  min(assessment(x)$DATE)
+
+start_date <- map(roll_rs$splits, get_date)
+roll_rs$start_date <- do.call("c", start_date)
+head(roll_rs$start_date)
+
+fit_model <- function(x, ...) {
+  # suggested by Matt Dancho:
+  x %>%
+    analysis() %>%
+    # Since the first day changes over resamples, adjust it
+    # based on the first date value in the data frame 
+    tk_ts(start = .$DATE[[1]] %>% as.yearmon(), 
+          freq = 1, 
+          silent = TRUE) %>%
+    auto.arima(...)
+}
+
+roll_rs$arima <- map(roll_rs$splits, fit_model)
 ```
 
 
